@@ -4,7 +4,8 @@ import '../../theme/app_theme.dart';
 import '../../screens/login_screen.dart';
 import 'qr_screen.dart';
 import 'cuotas_screen.dart';
-import 'historial_screen.dart';
+import 'home_screen.dart';
+import 'mas_screen.dart';
 
 class ResidenteShell extends StatefulWidget {
   const ResidenteShell({super.key});
@@ -41,9 +42,10 @@ class _ResidenteShellState extends State<ResidenteShell> {
   Widget build(BuildContext context) {
     final nombre = _usuario?['nombre'] ?? '';
     final pantallas = [
+      const HomeScreen(),
       const QrScreen(),
       const CuotasScreen(),
-      const HistorialScreen(),
+      const MasScreen(),
     ];
 
     return Scaffold(
@@ -74,6 +76,11 @@ class _ResidenteShellState extends State<ResidenteShell> {
         indicatorColor: AppColors.azul.withOpacity(0.12),
         destinations: const [
           NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home, color: AppColors.azul),
+            label: 'Inicio',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.qr_code_outlined),
             selectedIcon: Icon(Icons.qr_code, color: AppColors.azul),
             label: 'Mis QR',
@@ -84,9 +91,9 @@ class _ResidenteShellState extends State<ResidenteShell> {
             label: 'Cuotas',
           ),
           NavigationDestination(
-            icon: Icon(Icons.history_outlined),
-            selectedIcon: Icon(Icons.history, color: AppColors.azul),
-            label: 'Historial',
+            icon: Icon(Icons.menu_outlined),
+            selectedIcon: Icon(Icons.menu, color: AppColors.azul),
+            label: 'Más',
           ),
         ],
       ),

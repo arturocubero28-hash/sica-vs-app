@@ -69,6 +69,13 @@ class ApiClient {
     return _parse(res);
   }
 
+  static Future<dynamic> delete(String path) async {
+    final res = await http
+        .delete(Uri.parse('${ApiConfig.baseUrl}$path'), headers: await _headers())
+        .timeout(ApiConfig.timeout);
+    return _parse(res);
+  }
+
   static Future<dynamic> postMultipart(
       String path, File file, Map<String, String> fields) async {
     final token = await AuthStorage.getToken();

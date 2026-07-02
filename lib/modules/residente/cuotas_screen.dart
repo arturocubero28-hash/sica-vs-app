@@ -40,6 +40,32 @@ class _CuotasScreenState extends State<CuotasScreen> {
     if (_cargando) return const Center(child: CircularProgressIndicator());
     if (_error != null) return _ErrorWidget(error: _error!, onRetry: _cargar);
 
+    return DefaultTabController(
+      length: 2,
+      child: Column(children: [
+        Container(
+          color: Colors.white,
+          child: const TabBar(
+            labelColor: AppColors.azul,
+            unselectedLabelColor: AppColors.gris,
+            indicatorColor: AppColors.naranja,
+            indicatorWeight: 3,
+            tabs: [
+              Tab(text: 'Pendientes'),
+              Tab(text: 'Historial de pagos'),
+            ],
+          ),
+        ),
+        Expanded(child: TabBarView(children: [
+          _buildPendientes(),
+          _HistorialPagos(historial: (_datos?['historial'] as List<dynamic>?) ?? []),
+        ])),
+      ]),
+    );
+  }
+
+  Widget _buildPendientes() {
+
     final todasCuotas = (_datos?['cuotas'] as List<dynamic>?) ?? [];
     // Solo mostrar cuotas pendientes o vencidas — las que están en arreglo
     // o ya pagadas no se muestran (el arreglo se muestra en su propia sección)
@@ -350,4 +376,72 @@ class _ErrorWidget extends StatelessWidget {
           label: const Text('Reintentar')),
     ],
   ));
+}
+
+// ─── Historial de pagos (pestaña) ─────────────────────────────────────────────
+final _fmtFechaHora = DateFormat('dd/MM/yyyy HH:mm');
+
+class _HistorialPagos extends StatelessWidget {
+  final List<dynamic> historial;
+  const _HistorialPagos({required this.historial});
+
+  @override
+  Widget build(BuildContext context) {
+    if (historial.isEmpty) {
+      return const Center(
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.history, size: 64, color: AppColors.gris),
+          SizedBox(height: 16),
+          Text('Sin pagos registrados aún', style: TextStyle(color: AppColors.gris)),
+        ]),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: historial.length,
+      itemBuilder: (_, i) {
+        final pago = historial[i];
+        final etiqueta = pago['etiqueta']?.toString() ?? 'Pago';
+        final monto = (pago['monto'] as num).toDouble();
+        final metodo = pago['metodo']?.toString() ?? '';
+        final fecha = DateTime.tryParse(pago['fecha']?.toString() ?? '');
+        final recibo = pago['numero_recibo']?.toString();
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 10),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(children: [
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.verde.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_circle_outline,
+                    color: AppColors.verde, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(etiqueta, style: const TextStyle(
+                    fontWeight: FontWeight.w700, color: AppColors.azul)),
+                if (fecha != null)
+                  Text(_fmtFechaHora.format(fecha),
+                      style: const TextStyle(fontSize: 12, color: AppColors.gris)),
+                if (metodo.isNotEmpty)
+                  Text(metodo, style: const TextStyle(fontSize: 12, color: AppColors.gris)),
+              ])),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(_fmt.format(monto), style: const TextStyle(
+                    fontWeight: FontWeight.w800, color: AppColors.azul, fontSize: 15)),
+                if (recibo != null)
+                  Text('REC-$recibo', style: const TextStyle(
+                      fontSize: 11, color: AppColors.gris)),
+              ]),
+            ]),
+          ),
+        );
+      },
+    );
+  }
 }
