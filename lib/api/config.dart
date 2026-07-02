@@ -2,7 +2,8 @@
 // Cambiá baseUrl a la URL real cuando vayas a producción.
 class ApiConfig {
   // Desarrollo: URL de ngrok
-  static const String baseUrl = 'https://diabetes-earflap-faction.ngrok-free.app/api/v1';
+  // Emulador Android: 10.0.2.2 apunta al localhost de tu PC
+  static const String baseUrl = 'http://10.0.2.2:5000/api/v1';
 
   // Producción (descomentar cuando tengas el servidor real):
   // static const String baseUrl = 'https://tudominio.com/api/v1';
