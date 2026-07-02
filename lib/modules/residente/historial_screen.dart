@@ -72,12 +72,12 @@ class _PagoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final etiqueta = pago['etiqueta'] as String? ?? (pago['abono_id'] != null ? 'Abono de arreglo' : 'Cuota mensual');
     final monto  = (pago['monto'] as num).toDouble();
-    final estado = pago['estado'] as String;
+    final estado = pago['estado'] as String? ?? 'aprobado';
     final metodo = pago['metodo'] as String? ?? '';
-    final fecha  = DateTime.tryParse(pago['creado_en'] ?? '');
-    final recibo = pago['recibo_numero'] as String?;
-    final esAbono = pago['abono_id'] != null;
+    final fecha  = DateTime.tryParse(pago['fecha'] ?? pago['creado_en'] ?? '');
+    final recibo = pago['numero_recibo'] as String?;
 
     final aprobado = estado == 'aprobado';
 
@@ -93,19 +93,20 @@ class _PagoCard extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              esAbono ? Icons.handshake_outlined : Icons.receipt_long_outlined,
-              color: aprobado ? AppColors.verde : AppColors.amber,
+              recibo != null ? Icons.receipt_long_outlined : Icons.hourglass_empty_outlined,
+              color: AppColors.verde,
               size: 22,
             ),
           ),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(esAbono ? 'Abono de arreglo' : 'Cuota mensual',
+            Text(etiqueta,
                 style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.azul)),
             if (fecha != null)
               Text(_fmtFecha.format(fecha),
                   style: const TextStyle(fontSize: 12, color: AppColors.gris)),
-            Text(metodo, style: const TextStyle(fontSize: 12, color: AppColors.gris)),
+            if (metodo.isNotEmpty)
+              Text(metodo, style: const TextStyle(fontSize: 12, color: AppColors.gris)),
           ])),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text(_fmt.format(monto),

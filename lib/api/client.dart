@@ -121,33 +121,33 @@ class AuthApi {
 // ── Endpoints del residente ───────────────────────────────────────────────────
 class ResidenteApi {
   static Future<Map<String, dynamic>> misCuotas() async {
-    final res = await ApiClient.get('/cuotas/mis-cuotas');
+    final res = await ApiClient.get('/cuotas/mias');
     return res as Map<String, dynamic>;
   }
 
   static Future<List<dynamic>> misVisitas() async {
-    final res = await ApiClient.get('/visitas/mis-visitas');
+    final res = await ApiClient.get('/visitas/mias');
     return res as List<dynamic>;
   }
 
   static Future<Map<String, dynamic>> crearVisitaUnica(Map body) async {
-    final res = await ApiClient.post('/visitas/crear', body);
+    final res = await ApiClient.post('/visitas', body);
     return res as Map<String, dynamic>;
   }
 
   static Future<Map<String, dynamic>> crearVisitaRecurrente(Map body) async {
-    final res = await ApiClient.post('/visitas/recurrente', body);
+    final res = await ApiClient.post('/visitas', {...body, 'tipo': 'recurrente'});
     return res as Map<String, dynamic>;
   }
 
   static Future<Map<String, dynamic>> crearRepartidor(Map body) async {
-    final res = await ApiClient.post('/visitas/repartidor', body);
+    final res = await ApiClient.post('/visitas', {...body, 'tipo': 'repartidor'});
     return res as Map<String, dynamic>;
   }
 
   static Future<void> subirComprobante(String cuotaId, File archivo) async {
     await ApiClient.postMultipart(
-      '/cuotas/$cuotaId/pagar',
+      '/cuotas/mias/$cuotaId/pagar',
       archivo,
       {'metodo': 'transferencia'},
     );
@@ -171,7 +171,7 @@ class ResidenteApi {
 class GuardiaApi {
   static Future<Map<String, dynamic>> validarQr(
       String qrData, List<String> fotos) async {
-    final res = await ApiClient.post('/guardia/validar-qr', {
+    final res = await ApiClient.post('/visitas/qr/validar', {
       'qr_data': qrData,
       'fotos': fotos,
     });
@@ -179,7 +179,7 @@ class GuardiaApi {
   }
 
   static Future<List<dynamic>> historialAccesos({int pagina = 1}) async {
-    final res = await ApiClient.get('/guardia/historial?pagina=$pagina');
+    final res = await ApiClient.get('/visitas/accesos/recientes?pagina=$pagina');
     return res as List<dynamic>;
   }
 }

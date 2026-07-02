@@ -251,7 +251,7 @@ class _AbonoCard extends StatelessWidget {
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.upload_outlined, size: 18),
                 label: const Text('Subir comprobante'),
-                onPressed: () => _subirComprobante(context, abono['uuid_publico'] ?? abono['id'].toString()),
+                onPressed: () => _subirComprobante(context, abono['abono_id'] ?? abono['uuid_publico'] ?? abono['id'].toString()),
               ),
             ),
           ] else
