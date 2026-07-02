@@ -40,7 +40,12 @@ class _CuotasScreenState extends State<CuotasScreen> {
     if (_cargando) return const Center(child: CircularProgressIndicator());
     if (_error != null) return _ErrorWidget(error: _error!, onRetry: _cargar);
 
-    final cuotas = (_datos?['cuotas'] as List<dynamic>?) ?? [];
+    final todasCuotas = (_datos?['cuotas'] as List<dynamic>?) ?? [];
+    // Solo mostrar cuotas pendientes o vencidas — las que están en arreglo
+    // o ya pagadas no se muestran (el arreglo se muestra en su propia sección)
+    final cuotas = todasCuotas
+        .where((c) => ['pendiente', 'vencida', 'en_revision'].contains(c['estado']))
+        .toList();
     final arreglo = _datos?['arreglo'] as Map<String, dynamic>?;
     final cuentaBloqueada = _datos?['bloqueada'] == true;
 
