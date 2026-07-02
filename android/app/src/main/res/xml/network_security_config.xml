@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Permite HTTP con ngrok durante desarrollo y HTTPS en producción -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">ngrok-free.app</domain>
+        <domain includeSubdomains="true">ngrok.io</domain>
+    </domain-config>
+    <base-config cleartextTrafficPermitted="false"/>
+</network-security-config>
