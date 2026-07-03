@@ -105,3 +105,34 @@ Luego:
 ```
 flutter run
 ```
+
+## NOTA: si tu proyecto usa build.gradle.kts (Kotlin DSL)
+
+Si el archivo se llama `build.gradle.kts` en vez de `build.gradle`, la sintaxis
+es distinta (Kotlin en vez de Groovy):
+
+### compileOptions:
+```kotlin
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+```
+
+### dependencies (al final del archivo):
+```kotlin
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+}
+```
+
+### El plugin de google-services en build.gradle.kts:
+```kotlin
+plugins {
+    id("com.android.application")
+    id("kotlin-android")
+    id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
+}
+```
