@@ -185,3 +185,21 @@ Debe quedar junto al compileOptions:
 ```
 
 Luego `flutter run`.
+
+## Paso 8 — Si usás AGP 9+ (kotlinOptions deprecado)
+
+En versiones muy nuevas de Gradle/AGP, kotlinOptions ya no existe. Usar:
+
+Al inicio del archivo (antes de plugins {}):
+```kotlin
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+```
+
+Dentro de android { } (en vez de kotlinOptions):
+```kotlin
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_1_8)
+        }
+    }
+```
