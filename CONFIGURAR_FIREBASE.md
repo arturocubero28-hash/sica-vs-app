@@ -78,3 +78,30 @@ I/flutter: FCM token: dXXXXXX...
 ```
 
 Ese token es el que la app envía al backend para poder mandarte notificaciones.
+
+## Paso 5 — Core library desugaring (requerido por flutter_local_notifications)
+
+En `android/app/build.gradle`:
+
+### 5a. Dentro de `android { compileOptions { ... } }` agregá la primera línea:
+
+```gradle
+    compileOptions {
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+```
+
+### 5b. Al final del archivo, en el bloque `dependencies { ... }`:
+
+```gradle
+dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+}
+```
+
+Luego:
+```
+flutter run
+```
