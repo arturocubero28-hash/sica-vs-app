@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import '../../api/client.dart';
 import '../../theme/app_theme.dart';
 
-final _fmtHora = DateFormat('HH:mm');
+final _fmtHora  = DateFormat('HH:mm');
 final _fmtFecha = DateFormat('dd/MM');
 
 class AccesosScreen extends StatefulWidget {
@@ -24,8 +24,8 @@ class _AccesosScreenState extends State<AccesosScreen> {
   Future<void> _cargar() async {
     setState(() { _cargando = true; _error = null; });
     try {
-      final res = await GuardiaApi.historialAccesos();
-      setState(() => _accesos = res);
+      final res = await ApiClient.get('/visitas/accesos/recientes');
+      setState(() => _accesos = res as List<dynamic>);
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -51,7 +51,7 @@ class _AccesosScreenState extends State<AccesosScreen> {
     return RefreshIndicator(
       onRefresh: _cargar,
       child: _accesos.isEmpty
-          ? const Center(child: Text('Sin accesos registrados hoy',
+          ? const Center(child: Text('Sin accesos registrados',
               style: TextStyle(color: AppColors.gris)))
           : ListView.builder(
               padding: const EdgeInsets.all(16),
@@ -68,12 +68,16 @@ class _AccesoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final nombre    = acceso['nombre_visitante'] ?? 'Desconocido';
-    final resultado = acceso['resultado'] ?? '';
-    final hora      = DateTime.tryParse(acceso['creado_en'] ?? '');
-    final tipo      = acceso['tipo_qr'] ?? '';
-    final unidad    = acceso['unidad'] ?? '';
-    final permitido = resultado == 'permitido';
+    final nombre    = acceso['nombre_visitante']?.toString() ?? 'Residente';
+    final direccion = acceso['direccion']?.toString() ?? '';
+    final hora      = DateTime.tryParse(acceso['ocurrido_en']?.toString() ?? '');
+    final tipo      = acceso['tipo_qr']?.toString() ?? acceso['origen']?.toString() ?? '';
+    final unidad    = acceso['unidad']?.toString() ?? '';
+    final enVehiculo = acceso['en_vehiculo'] == true;
+    final placa     = acceso['placa_vehiculo']?.toString();
+    final guardia   = acceso['guardia']?.toString();
+
+    final esEntrada = direccion == 'entrada';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -81,31 +85,58 @@ class _AccesoCard extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         child: Row(children: [
           Container(
-            width: 44, height: 44,
+            width: 48, height: 48,
             decoration: BoxDecoration(
-              color: (permitido ? AppColors.verde : AppColors.rojo).withOpacity(0.12),
-              shape: BoxShape.circle,
+              color: (esEntrada ? AppColors.verde : AppColors.azul).withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              permitido ? Icons.check : Icons.close,
-              color: permitido ? AppColors.verde : AppColors.rojo,
-              size: 22,
+              esEntrada ? Icons.login : Icons.logout,
+              color: esEntrada ? AppColors.verde : AppColors.azul,
+              size: 24,
             ),
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(nombre, style: const TextStyle(
                 fontWeight: FontWeight.w700, color: AppColors.azul, fontSize: 14)),
-            Text(unidad.isNotEmpty ? '$unidad · $tipo' : tipo,
-                style: const TextStyle(fontSize: 12, color: AppColors.gris)),
-          ])),
-          if (hora != null)
-            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(_fmtHora.format(hora),
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.azul)),
-              Text(_fmtFecha.format(hora),
-                  style: const TextStyle(fontSize: 11, color: AppColors.gris)),
+            Row(children: [
+              if (unidad.isNotEmpty) ...[
+                Text(unidad, style: const TextStyle(fontSize: 12, color: AppColors.gris)),
+                const Text(' · ', style: TextStyle(color: AppColors.gris)),
+              ],
+              Text(tipo, style: const TextStyle(fontSize: 12, color: AppColors.gris)),
+              if (enVehiculo) ...[
+                const Text(' · ', style: TextStyle(color: AppColors.gris)),
+                const Icon(Icons.directions_car, size: 14, color: AppColors.gris),
+                if (placa != null && placa.isNotEmpty)
+                  Text(' $placa', style: const TextStyle(fontSize: 11, color: AppColors.gris)),
+              ],
             ]),
+            if (guardia != null && guardia.isNotEmpty)
+              Text('Guardia: $guardia',
+                  style: const TextStyle(fontSize: 11, color: AppColors.gris)),
+          ])),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            if (hora != null)
+              Text(_fmtHora.format(hora.toLocal()),
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.azul, fontSize: 15)),
+            if (hora != null)
+              Text(_fmtFecha.format(hora.toLocal()),
+                  style: const TextStyle(fontSize: 11, color: AppColors.gris)),
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: (esEntrada ? AppColors.verde : AppColors.azul).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(esEntrada ? 'Entrada' : 'Salida', style: TextStyle(
+                color: esEntrada ? AppColors.verde : AppColors.azul,
+                fontSize: 11, fontWeight: FontWeight.w700,
+              )),
+            ),
+          ]),
         ]),
       ),
     );
