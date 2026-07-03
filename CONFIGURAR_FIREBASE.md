@@ -136,3 +136,25 @@ plugins {
     id("com.google.gms.google-services")
 }
 ```
+
+## Paso 6 — Si Gradle crashea por memoria (daemon disappeared / JVM crash)
+
+Al compilar con Firebase, Gradle puede quedarse sin memoria y el daemon
+crashea con "Gradle build daemon disappeared unexpectedly".
+
+Solución: editar `android/gradle.properties` y ajustar la memoria:
+
+```properties
+org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=1G -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+org.gradle.daemon=true
+org.gradle.parallel=true
+org.gradle.caching=true
+```
+
+Bajar de 8G a 4G suele resolverlo: 8G puede fallar si Windows no reserva el
+bloque contiguo. Luego:
+
+```
+flutter clean
+flutter run
+```
