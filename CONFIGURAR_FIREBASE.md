@@ -158,3 +158,30 @@ bloque contiguo. Luego:
 flutter clean
 flutter run
 ```
+
+## Paso 7 — Inconsistent JVM Target (Java 1.8 vs Kotlin 17)
+
+Si aparece "Inconsistent JVM-target compatibility ... Java (1.8) and Kotlin (17)",
+hay que alinear Kotlin con Java. En `android/app/build.gradle.kts`, dentro del
+bloque `android { }`, agregá:
+
+```kotlin
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+```
+
+Debe quedar junto al compileOptions:
+
+```kotlin
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+```
+
+Luego `flutter run`.
