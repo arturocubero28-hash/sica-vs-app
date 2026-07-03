@@ -85,6 +85,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     super.dispose();
   }
   // ─── Paso 1: Validar QR o código ────────────────────────────────────────────
+  Future<void> _onDeteccion(BarcodeCapture capture) async {
     if (_procesando || _paso != _Paso.scan) return;
     final qrData = capture.barcodes.firstOrNull?.rawValue;
     if (qrData == null) return;
