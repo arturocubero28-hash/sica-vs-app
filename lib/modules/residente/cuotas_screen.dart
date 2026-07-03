@@ -3,10 +3,58 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'dart:io';
 import '../../api/client.dart';
+import '../../api/permisos.dart';
 import '../../theme/app_theme.dart';
 
 final _fmt = NumberFormat.currency(locale: 'es_HN', symbol: 'L ');
 final _fmtFecha = DateFormat('dd/MM/yyyy');
+
+/// Muestra un selector de cámara o galería y devuelve la fuente elegida.
+Future<ImageSource?> _elegirFuente(BuildContext context) {
+  return showModalBottomSheet<ImageSource>(
+    context: context,
+    shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (_) => SafeArea(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const SizedBox(height: 12),
+        Container(width: 40, height: 4, decoration: BoxDecoration(
+            color: AppColors.borde, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(height: 8),
+        const Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('Subir comprobante',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.azul)),
+        ),
+        ListTile(
+          leading: Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(
+                color: AppColors.naranja.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.camera_alt, color: AppColors.naranja),
+          ),
+          title: const Text('Tomar foto'),
+          subtitle: const Text('Usá la cámara del teléfono'),
+          onTap: () => Navigator.pop(context, ImageSource.camera),
+        ),
+        ListTile(
+          leading: Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(
+                color: AppColors.azul.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.photo_library, color: AppColors.azul),
+          ),
+          title: const Text('Elegir de la galería'),
+          subtitle: const Text('Seleccioná una imagen guardada'),
+          onTap: () => Navigator.pop(context, ImageSource.gallery),
+        ),
+        const SizedBox(height: 12),
+      ]),
+    ),
+  );
+}
 
 class CuotasScreen extends StatefulWidget {
   const CuotasScreen({super.key});
@@ -217,11 +265,28 @@ class _CuotaCard extends StatelessWidget {
   }
 
   Future<void> _subirComprobante(BuildContext context, String cuotaId) async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (picked == null) return;
+    final fuente = await _elegirFuente(context);
+    if (fuente == null || !context.mounted) return;
 
-    if (!context.mounted) return;
+    // Pedir permiso según la fuente elegida
+    if (fuente == ImageSource.camera) {
+      final ok = await PermisosService.pedirCamara();
+      if (!ok) {
+        if (context.mounted) _avisoPermiso(context, 'cámara');
+        return;
+      }
+    } else {
+      final ok = await PermisosService.pedirGaleria();
+      if (!ok) {
+        if (context.mounted) _avisoPermiso(context, 'galería');
+        return;
+      }
+    }
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: fuente, imageQuality: 80);
+    if (picked == null || !context.mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Subiendo comprobante…'), duration: Duration(seconds: 30)));
 
@@ -235,8 +300,8 @@ class _CuotaCard extends StatelessWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: AppColors.rojo));
+      // El backend devuelve mensajes claros sobre formato/tamaño: los mostramos completos
+      _mostrarErrorArchivo(context, e.toString());
     }
   }
 }
@@ -300,10 +365,20 @@ class _AbonoCard extends StatelessWidget {
   }
 
   Future<void> _subirComprobante(BuildContext context, String abonoId) async {
+    final fuente = await _elegirFuente(context);
+    if (fuente == null || !context.mounted) return;
+
+    if (fuente == ImageSource.camera) {
+      final ok = await PermisosService.pedirCamara();
+      if (!ok) { if (context.mounted) _avisoPermiso(context, 'cámara'); return; }
+    } else {
+      final ok = await PermisosService.pedirGaleria();
+      if (!ok) { if (context.mounted) _avisoPermiso(context, 'galería'); return; }
+    }
+
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (picked == null) return;
-    if (!context.mounted) return;
+    final picked = await picker.pickImage(source: fuente, imageQuality: 80);
+    if (picked == null || !context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Subiendo comprobante…'), duration: Duration(seconds: 30)));
     try {
@@ -316,8 +391,7 @@ class _AbonoCard extends StatelessWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: AppColors.rojo));
+      _mostrarErrorArchivo(context, e.toString());
     }
   }
 }
@@ -444,4 +518,49 @@ class _HistorialPagos extends StatelessWidget {
       },
     );
   }
+}
+
+// ─── Helpers compartidos de comprobante ───────────────────────────────────────
+
+/// Muestra un diálogo cuando el usuario negó el permiso de cámara/galería.
+void _avisoPermiso(BuildContext context, String cual) {
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text('Permiso de $cual necesario'),
+      content: Text(
+        'Para subir el comprobante necesitás dar permiso de $cual. '
+        'Podés habilitarlo en los Ajustes del teléfono.',
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        ElevatedButton(
+          onPressed: () { Navigator.pop(context); PermisosService.abrirConfiguracion(); },
+          child: const Text('Abrir Ajustes'),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Muestra el error de archivo del backend en un diálogo (mensaje completo con
+// indicaciones de formatos permitidos y tamaño), no en un snackbar cortado.
+void _mostrarErrorArchivo(BuildContext context, String mensaje) {
+  final limpio = mensaje.replaceFirst('Exception: ', '');
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      icon: const Icon(Icons.warning_amber, color: AppColors.amber, size: 40),
+      title: const Text('No se pudo subir'),
+      content: Text(limpio, style: const TextStyle(height: 1.4)),
+      actions: [
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Entendido'),
+        ),
+      ],
+    ),
+  );
 }
