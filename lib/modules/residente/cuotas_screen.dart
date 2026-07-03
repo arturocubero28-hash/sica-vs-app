@@ -27,11 +27,11 @@ class _CuotasScreenState extends State<CuotasScreen> {
     setState(() { _cargando = true; _error = null; });
     try {
       final res = await ResidenteApi.misCuotas();
-      setState(() => _datos = res);
+      if (mounted) setState(() => _datos = res);
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     } finally {
-      setState(() => _cargando = false);
+      if (mounted) setState(() => _cargando = false);
     }
   }
 
