@@ -88,22 +88,7 @@ class _QrScreenState extends State<QrScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? _ErrorReintentar(error: _error!, onRetry: _cargar)
-              : RefreshIndicator(
-                  onRefresh: _cargar,
-                  child: _visitas.isEmpty
-                      ? ListView(children: const [
-                          SizedBox(height: 180),
-                          _Vacio(),
-                        ])
-                      : ListView(
-                          padding: const EdgeInsets.all(16),
-                          children: [
-                            ..._visitas.map((v) => _VisitaCard(
-                                visita: v, onTap: () => _abrirTarjeta(v))),
-                            const SizedBox(height: 80),
-                          ],
-                        ),
-                ),
+              : _buildConPestanas(),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _abrirCrear,
         backgroundColor: AppColors.naranja,
@@ -111,6 +96,66 @@ class _QrScreenState extends State<QrScreen> {
         label: const Text('Nuevo QR',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
       ),
+    );
+  }
+
+  bool _esActiva(dynamic v) {
+    final estado = v['estado']?.toString() ?? '';
+    final estadoReal = v['estado_real']?.toString() ?? '';
+    // Activa: estado base 'activa' o 'pendiente' y no salió/no expiró
+    if (['usada', 'expirada', 'revocada'].contains(estado)) return false;
+    if (estadoReal == 'salio') return false;
+    return true;
+  }
+
+  Widget _buildConPestanas() {
+    final activas = _visitas.where(_esActiva).toList();
+    final historico = _visitas.where((v) => !_esActiva(v)).toList();
+
+    return DefaultTabController(
+      length: 2,
+      child: Column(children: [
+        Container(
+          color: Colors.white,
+          child: TabBar(
+            labelColor: AppColors.azul,
+            unselectedLabelColor: AppColors.gris,
+            indicatorColor: AppColors.naranja,
+            indicatorWeight: 3,
+            tabs: [
+              Tab(text: 'Activas (${activas.length})'),
+              Tab(text: 'Histórico (${historico.length})'),
+            ],
+          ),
+        ),
+        Expanded(child: TabBarView(children: [
+          _buildLista(activas, vacioMsg: 'No tenés visitas activas.\nCreá una con el botón naranja.'),
+          _buildLista(historico, vacioMsg: 'No hay visitas en el histórico todavía.'),
+        ])),
+      ]),
+    );
+  }
+
+  Widget _buildLista(List<dynamic> lista, {required String vacioMsg}) {
+    return RefreshIndicator(
+      onRefresh: _cargar,
+      child: lista.isEmpty
+          ? ListView(children: [
+              const SizedBox(height: 120),
+              Center(child: Column(children: [
+                Icon(Icons.qr_code_2, size: 72, color: AppColors.gris.withOpacity(0.3)),
+                const SizedBox(height: 12),
+                Text(vacioMsg, textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.gris)),
+              ])),
+            ])
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                ...lista.map((v) => _VisitaCard(visita: v, onTap: () => _abrirTarjeta(v))),
+                const SizedBox(height: 80),
+              ],
+            ),
     );
   }
 }
@@ -611,21 +656,6 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
       ),
     );
   }
-}
-
-class _Vacio extends StatelessWidget {
-  const _Vacio();
-
-  @override
-  Widget build(BuildContext context) => Center(child: Column(children: [
-    Icon(Icons.qr_code_2, size: 80, color: AppColors.gris.withOpacity(0.3)),
-    const SizedBox(height: 16),
-    const Text('No tenés QR activos',
-        style: TextStyle(color: AppColors.gris, fontSize: 16)),
-    const SizedBox(height: 4),
-    const Text('Creá uno con el botón naranja',
-        style: TextStyle(color: AppColors.gris, fontSize: 13)),
-  ]));
 }
 
 class _ErrorReintentar extends StatelessWidget {
