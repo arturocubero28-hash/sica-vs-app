@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../../api/client.dart';
+import '../../api/permisos.dart';
 import '../../theme/app_theme.dart';
 
 /// Flujo del guardia (igual que la web): escanear → revisar → registrar.
@@ -40,14 +41,50 @@ class _ScannerScreenState extends State<ScannerScreen> {
   String _resultado = '';
 
   @override
+  void initState() {
+    super.initState();
+    _pedirPermisosCamara();
+  }
+
+  Future<void> _pedirPermisosCamara() async {
+    final concedido = await PermisosService.pedirCamara();
+    if (!concedido && mounted) {
+      // Si el usuario negó el permiso, mostrar diálogo explicativo
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Permiso de cámara requerido'),
+          content: const Text(
+            'El escáner necesita acceso a la cámara para leer los códigos QR '
+            'de los visitantes. Por favor habilitalo en Ajustes.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                PermisosService.abrirConfiguracion();
+              },
+              child: const Text('Abrir Ajustes'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  @override
   void dispose() {
     _ctrl.dispose();
     _codigoCtrl.dispose();
     super.dispose();
   }
-
   // ─── Paso 1: Validar QR o código ────────────────────────────────────────────
-  Future<void> _onDeteccion(BarcodeCapture capture) async {
     if (_procesando || _paso != _Paso.scan) return;
     final qrData = capture.barcodes.firstOrNull?.rawValue;
     if (qrData == null) return;
