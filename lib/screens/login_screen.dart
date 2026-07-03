@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../api/client.dart';
 import '../theme/app_theme.dart';
 import '../modules/shared/role_router.dart';
+import '../api/notificaciones.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,6 +41,9 @@ class _LoginScreenState extends State<LoginScreen> {
       final rol   = user['rol'] as String;
 
       await AuthStorage.guardar(token, rol, user);
+
+      // Registrar el dispositivo para notificaciones push
+      await NotificacionesService.registrarToken();
 
       if (!mounted) return;
       RoleRouter.navegar(context, rol);

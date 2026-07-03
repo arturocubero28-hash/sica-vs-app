@@ -26,6 +26,10 @@ dependencies:
   intl: ^0.19.0
   share_plus: ^9.0.0
   path_provider: ^2.1.2
+  # Notificaciones push
+  firebase_core: ^2.27.0
+  firebase_messaging: ^14.7.20
+  flutter_local_notifications: ^17.0.0
 
 dev_dependencies:
   flutter_test:

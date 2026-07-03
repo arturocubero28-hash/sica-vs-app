@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../api/client.dart';
+import '../../api/notificaciones.dart';
 import '../../theme/app_theme.dart';
 import '../../screens/login_screen.dart';
 import 'scanner_screen.dart';
@@ -25,6 +26,7 @@ class _GuardiaShellState extends State<GuardiaShell> {
   }
 
   Future<void> _logout() async {
+    await NotificacionesService.desregistrar();
     await AuthStorage.limpiar();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(

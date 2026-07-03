@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../api/client.dart';
+import '../../api/notificaciones.dart';
 import '../../theme/app_theme.dart';
 import '../../screens/login_screen.dart';
 import 'qr_screen.dart';
@@ -30,6 +31,7 @@ class _ResidenteShellState extends State<ResidenteShell> {
   }
 
   Future<void> _logout() async {
+    await NotificacionesService.desregistrar();
     await AuthStorage.limpiar();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(

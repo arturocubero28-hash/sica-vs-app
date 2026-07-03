@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../api/client.dart';
+import '../../api/notificaciones.dart';
 import '../../theme/app_theme.dart';
 import '../../screens/login_screen.dart';
 
@@ -63,7 +64,8 @@ class NoMobileScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () async {
-                    await AuthStorage.limpiar();
+                    await NotificacionesService.desregistrar();
+    await AuthStorage.limpiar();
                     if (!context.mounted) return;
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(builder: (_) => const LoginScreen()),
