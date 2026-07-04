@@ -122,7 +122,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
   Future<void> _tomarFoto(String cual) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
-        source: ImageSource.camera, imageQuality: 60, maxWidth: 1280);
+        source: ImageSource.camera,
+        imageQuality: 40,   // más bajo para no crashear en teléfonos reales
+        maxWidth: 800,      // suficiente para identificar; no necesita más
+        maxHeight: 800);
     if (picked == null) return;
     final b64 = base64Encode(await File(picked.path).readAsBytes());
     setState(() {
