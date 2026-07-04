@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../api/client.dart';
 import '../../api/permisos.dart';
 import '../../api/camara_helper.dart';
+import '../../api/recuperacion_guardia.dart';
 import '../../theme/app_theme.dart';
 
 /// Flujo del guardia: escanear → revisar → registrar.
@@ -37,8 +38,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
   File? _fotoPlaca;
   File? _fotoNumero;
 
-  // Para saber qué foto se estaba tomando cuando Android mató el proceso
-  String? _fotoEnCurso;
 
   String _resultado = '';
 
@@ -46,24 +45,59 @@ class _ScannerScreenState extends State<ScannerScreen> {
   void initState() {
     super.initState();
     _pedirPermisosCamara();
-    // Recuperar foto perdida por Android matando el proceso
-    _recuperarFotoPerdida();
+    // Si Android mató el proceso mientras se tomaba una foto, restaurar todo
+    _restaurarSiHuboReinicio();
   }
 
-  /// Si Android mató el proceso mientras el guardia tomaba una foto,
-  /// recupera la imagen y la asigna donde corresponde.
-  Future<void> _recuperarFotoPerdida() async {
-    final archivo = await CamaraHelper.recuperarPerdida();
-    if (archivo != null && _fotoEnCurso != null && mounted) {
-      setState(() {
-        switch (_fotoEnCurso) {
-          case 'id':     _fotoId = archivo; break;
-          case 'placa':  _fotoPlaca = archivo; break;
-          case 'numero': _fotoNumero = archivo; break;
+  /// Restaura el flujo del guardia si Android mató el proceso al abrir la cámara.
+  /// Recupera el estado del registro (visita, paso, dirección) Y la foto perdida.
+  Future<void> _restaurarSiHuboReinicio() async {
+    final estado = await RecuperacionGuardia.leerEstado();
+    if (estado == null) return; // no había registro en curso
+
+    // Recuperar la foto que Android perdió
+    final rutaFoto = await RecuperacionGuardia.recuperarFotoPerdida();
+    final cual = await RecuperacionGuardia.leerFotoEnCurso();
+
+    if (!mounted) return;
+    setState(() {
+      // Restaurar el paso 2 con los datos de la visita
+      _visita = (estado['visita'] as Map?)?.cast<String, dynamic>();
+      _direccion = estado['direccion']?.toString() ?? 'entrada';
+      _cuentaBloqueada = estado['cuenta_bloqueada'] == true;
+      _estaAdentro = estado['esta_adentro'] == true;
+      _mensajeValidacion = estado['mensaje']?.toString();
+      // Restaurar fotos ya tomadas antes del reinicio
+      if (estado['foto_id'] != null) _fotoId = File(estado['foto_id']);
+      if (estado['foto_placa'] != null) _fotoPlaca = File(estado['foto_placa']);
+      if (estado['foto_numero'] != null) _fotoNumero = File(estado['foto_numero']);
+      // Asignar la foto recién recuperada
+      if (rutaFoto != null && cual != null) {
+        switch (cual) {
+          case 'id':     _fotoId = File(rutaFoto); break;
+          case 'placa':  _fotoPlaca = File(rutaFoto); break;
+          case 'numero': _fotoNumero = File(rutaFoto); break;
         }
-        _fotoEnCurso = null;
-      });
-    }
+      }
+      _paso = _Paso.review;
+    });
+    // Detener el escáner porque ya estamos en review
+    await _ctrl.stop();
+  }
+
+  /// Persiste el estado actual del registro para sobrevivir un reinicio.
+  Future<void> _persistirEstado() async {
+    if (_visita == null) return;
+    await RecuperacionGuardia.guardarEstado({
+      'visita': _visita,
+      'direccion': _direccion,
+      'cuenta_bloqueada': _cuentaBloqueada,
+      'esta_adentro': _estaAdentro,
+      'mensaje': _mensajeValidacion,
+      'foto_id': _fotoId?.path,
+      'foto_placa': _fotoPlaca?.path,
+      'foto_numero': _fotoNumero?.path,
+    });
   }
 
   Future<void> _pedirPermisosCamara() async {
@@ -136,9 +170,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   // ─── Paso 2: Tomar fotos ──────────────────────────────────────────────────
   Future<void> _tomarFoto(String cual) async {
-    // Guardar cuál foto se está tomando ANTES de abrir la cámara.
-    // Si Android mata el proceso, initState lo recupera.
-    _fotoEnCurso = cual;
+    // ANTES de abrir la cámara, persistir el estado completo en disco.
+    // Si Android mata el proceso, al reabrir la app se restaura todo.
+    await _persistirEstado();
+    await RecuperacionGuardia.marcarFotoEnCurso(cual);
 
     final archivo = await CamaraHelper.capturar(
       fuente: ImageSource.camera,
@@ -146,7 +181,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
       maxSize: 1024,
     );
 
-    _fotoEnCurso = null;
     if (archivo == null || !mounted) return;
 
     setState(() {
@@ -156,6 +190,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
         case 'numero': _fotoNumero = archivo; break;
       }
     });
+    // Actualizar el estado guardado con la foto recién tomada
+    await _persistirEstado();
   }
 
   // ─── Paso 3: Registrar acceso ─────────────────────────────────────────────
@@ -176,6 +212,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
         fotoPlaca: _fotoPlaca,
         fotoNumero: _fotoNumero,
       );
+      await RecuperacionGuardia.limpiar(); // registro completado
       setState(() {
         _resultado = _direccion == 'entrada' ? 'Entrada registrada' : 'Salida registrada';
         _paso = _Paso.done;
@@ -190,6 +227,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
   }
 
   void _reiniciar() {
+    RecuperacionGuardia.limpiar(); // descartar registro en curso
     setState(() {
       _paso = _Paso.scan;
       _visita = null; _error = null;
