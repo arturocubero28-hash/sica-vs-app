@@ -10,6 +10,10 @@ import '../../theme/app_theme.dart';
 final _fmt = NumberFormat.currency(locale: 'es_HN', symbol: 'L ');
 final _fmtFecha = DateFormat('dd/MM/yyyy');
 
+/// IDs de cuotas/abonos cuyo comprobante se está subiendo ahora mismo.
+/// Evita que un doble toque suba el mismo comprobante dos veces.
+final Set<String> _subidasEnCurso = {};
+
 /// Muestra un selector de cámara o galería y devuelve la fuente elegida.
 Future<ImageSource?> _elegirFuente(BuildContext context) {
   return showModalBottomSheet<ImageSource>(
@@ -266,6 +270,9 @@ class _CuotaCard extends StatelessWidget {
   }
 
   Future<void> _subirComprobante(BuildContext context, String cuotaId, double monto) async {
+    // Candado: si ya se está subiendo para esta cuota, ignorar el doble toque
+    if (_subidasEnCurso.contains(cuotaId)) return;
+
     final fuente = await _elegirFuente(context);
     if (fuente == null || !context.mounted) return;
 
@@ -288,6 +295,7 @@ class _CuotaCard extends StatelessWidget {
     final archivo = await CamaraHelper.capturar(fuente: fuente, quality: 50, maxSize: 1024);
     if (archivo == null || !context.mounted) return;
 
+    _subidasEnCurso.add(cuotaId);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Subiendo comprobante…'), duration: Duration(seconds: 30)));
 
@@ -303,6 +311,8 @@ class _CuotaCard extends StatelessWidget {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       // El backend devuelve mensajes claros sobre formato/tamaño: los mostramos completos
       _mostrarErrorArchivo(context, e.toString());
+    } finally {
+      _subidasEnCurso.remove(cuotaId);
     }
   }
 }
@@ -366,6 +376,8 @@ class _AbonoCard extends StatelessWidget {
   }
 
   Future<void> _subirComprobante(BuildContext context, String abonoId, double monto) async {
+    if (_subidasEnCurso.contains(abonoId)) return;
+
     final fuente = await _elegirFuente(context);
     if (fuente == null || !context.mounted) return;
 
@@ -380,6 +392,8 @@ class _AbonoCard extends StatelessWidget {
     // CamaraHelper maneja retrieveLostData() en caso de que Android mate el proceso
     final archivo = await CamaraHelper.capturar(fuente: fuente, quality: 50, maxSize: 1024);
     if (archivo == null || !context.mounted) return;
+
+    _subidasEnCurso.add(abonoId);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Subiendo comprobante…'), duration: Duration(seconds: 30)));
     try {
@@ -393,6 +407,8 @@ class _AbonoCard extends StatelessWidget {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       _mostrarErrorArchivo(context, e.toString());
+    } finally {
+      _subidasEnCurso.remove(abonoId);
     }
   }
 }

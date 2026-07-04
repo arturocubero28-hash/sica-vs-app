@@ -28,6 +28,7 @@ class CamaraHelper {
         imageQuality: quality,
         maxWidth: maxSize.toDouble(),
         maxHeight: maxSize.toDouble(),
+        requestFullMetadata: false,  // no carga EXIF completo → menos memoria
       );
       if (picked != null) return File(picked.path);
     } catch (e) {

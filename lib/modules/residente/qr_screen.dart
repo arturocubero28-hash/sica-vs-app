@@ -10,6 +10,7 @@ import '../../api/config.dart';
 import '../../theme/app_theme.dart';
 
 final _fmtVigencia = DateFormat('dd/MM/yyyy');
+final _fmtHora = DateFormat('dd/MM HH:mm');
 
 class QrScreen extends StatefulWidget {
   const QrScreen({super.key});
@@ -102,9 +103,10 @@ class _QrScreenState extends State<QrScreen> {
   bool _esActiva(dynamic v) {
     final estado = v['estado']?.toString() ?? '';
     final estadoReal = v['estado_real']?.toString() ?? '';
-    // Activa: estado base 'activa' o 'pendiente' y no salió/no expiró
+    // Histórico si el estado base es final...
     if (['usada', 'expirada', 'revocada'].contains(estado)) return false;
-    if (estadoReal == 'salio') return false;
+    // ...o si el estado real indica que ya salió o venció por fecha
+    if (['salio', 'expirada', 'usada'].contains(estadoReal)) return false;
     return true;
   }
 
@@ -176,6 +178,12 @@ class _VisitaCard extends StatelessWidget {
     final validoHasta = visita['valido_hasta'] != null
         ? DateTime.tryParse(visita['valido_hasta'])
         : null;
+    final horaEntrada = visita['hora_entrada'] != null
+        ? DateTime.tryParse(visita['hora_entrada'])
+        : null;
+    final horaSalida = visita['hora_salida'] != null
+        ? DateTime.tryParse(visita['hora_salida'])
+        : null;
 
     final activa = estado == 'activa' || estado == 'pendiente';
 
@@ -231,6 +239,25 @@ class _VisitaCard extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 4),
                     child: Text('Válido hasta: ${_fmtVigencia.format(validoHasta)}',
                         style: const TextStyle(fontSize: 11, color: AppColors.gris)),
+                  ),
+                if (horaEntrada != null || horaSalida != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(children: [
+                      if (horaEntrada != null) ...[
+                        const Icon(Icons.login, size: 13, color: AppColors.verde),
+                        const SizedBox(width: 3),
+                        Text(_fmtHora.format(horaEntrada.toLocal()),
+                            style: const TextStyle(fontSize: 11, color: AppColors.verde, fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 10),
+                      ],
+                      if (horaSalida != null) ...[
+                        const Icon(Icons.logout, size: 13, color: AppColors.azul),
+                        const SizedBox(width: 3),
+                        Text(_fmtHora.format(horaSalida.toLocal()),
+                            style: const TextStyle(fontSize: 11, color: AppColors.azul, fontWeight: FontWeight.w600)),
+                      ],
+                    ]),
                   ),
               ],
             )),
