@@ -152,19 +152,19 @@ class ResidenteApi {
     return res as Map<String, dynamic>;
   }
 
-  static Future<void> subirComprobante(String cuotaId, File archivo) async {
+  static Future<void> subirComprobante(String cuotaId, File archivo, double monto) async {
     await ApiClient.postMultipart(
       '/cuotas/mias/$cuotaId/pagar',
       archivo,
-      {'metodo': 'transferencia'},
+      {'metodo': 'transferencia', 'monto': monto.toStringAsFixed(2)},
     );
   }
 
-  static Future<void> subirComprobanteAbono(String abonoId, File archivo) async {
+  static Future<void> subirComprobanteAbono(String abonoId, File archivo, double monto) async {
     await ApiClient.postMultipart(
       '/cuotas/abonos/$abonoId/pagar',
       archivo,
-      {'metodo': 'transferencia'},
+      {'metodo': 'transferencia', 'monto': monto.toStringAsFixed(2)},
     );
   }
 

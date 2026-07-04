@@ -247,7 +247,7 @@ class _CuotaCard extends StatelessWidget {
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.upload_outlined, size: 18),
                 label: const Text('Subir comprobante'),
-                onPressed: () => _subirComprobante(context, cuota['uuid_publico'] ?? cuota['id'].toString()),
+                onPressed: () => _subirComprobante(context, cuota['uuid_publico'] ?? cuota['id'].toString(), monto),
               ),
             ),
           ] else ...[
@@ -264,7 +264,7 @@ class _CuotaCard extends StatelessWidget {
     );
   }
 
-  Future<void> _subirComprobante(BuildContext context, String cuotaId) async {
+  Future<void> _subirComprobante(BuildContext context, String cuotaId, double monto) async {
     final fuente = await _elegirFuente(context);
     if (fuente == null || !context.mounted) return;
 
@@ -291,7 +291,7 @@ class _CuotaCard extends StatelessWidget {
       const SnackBar(content: Text('Subiendo comprobante…'), duration: Duration(seconds: 30)));
 
     try {
-      await ResidenteApi.subirComprobante(cuotaId, File(picked.path));
+      await ResidenteApi.subirComprobante(cuotaId, File(picked.path), monto);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -347,7 +347,7 @@ class _AbonoCard extends StatelessWidget {
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.upload_outlined, size: 18),
                 label: const Text('Subir comprobante'),
-                onPressed: () => _subirComprobante(context, abono['abono_id'] ?? abono['uuid_publico'] ?? abono['id'].toString()),
+                onPressed: () => _subirComprobante(context, abono['abono_id'] ?? abono['uuid_publico'] ?? abono['id'].toString(), monto),
               ),
             ),
           ] else
@@ -364,7 +364,7 @@ class _AbonoCard extends StatelessWidget {
     );
   }
 
-  Future<void> _subirComprobante(BuildContext context, String abonoId) async {
+  Future<void> _subirComprobante(BuildContext context, String abonoId, double monto) async {
     final fuente = await _elegirFuente(context);
     if (fuente == null || !context.mounted) return;
 
@@ -382,7 +382,7 @@ class _AbonoCard extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Subiendo comprobante…'), duration: Duration(seconds: 30)));
     try {
-      await ResidenteApi.subirComprobanteAbono(abonoId, File(picked.path));
+      await ResidenteApi.subirComprobanteAbono(abonoId, File(picked.path), monto);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
