@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'dart:io';
 import '../../api/client.dart';
 import '../../api/permisos.dart';
+import '../../api/camara_helper.dart';
 import '../../theme/app_theme.dart';
 
 final _fmt = NumberFormat.currency(locale: 'es_HN', symbol: 'L ');
@@ -283,15 +284,15 @@ class _CuotaCard extends StatelessWidget {
       }
     }
 
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: fuente, imageQuality: 50, maxWidth: 1024, maxHeight: 1024);
-    if (picked == null || !context.mounted) return;
+    // CamaraHelper maneja retrieveLostData() en caso de que Android mate el proceso
+    final archivo = await CamaraHelper.capturar(fuente: fuente, quality: 50, maxSize: 1024);
+    if (archivo == null || !context.mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Subiendo comprobante…'), duration: Duration(seconds: 30)));
 
     try {
-      await ResidenteApi.subirComprobante(cuotaId, File(picked.path), monto);
+      await ResidenteApi.subirComprobante(cuotaId, archivo, monto);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -376,13 +377,13 @@ class _AbonoCard extends StatelessWidget {
       if (!ok) { if (context.mounted) _avisoPermiso(context, 'galería'); return; }
     }
 
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: fuente, imageQuality: 50, maxWidth: 1024, maxHeight: 1024);
-    if (picked == null || !context.mounted) return;
+    // CamaraHelper maneja retrieveLostData() en caso de que Android mate el proceso
+    final archivo = await CamaraHelper.capturar(fuente: fuente, quality: 50, maxSize: 1024);
+    if (archivo == null || !context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Subiendo comprobante…'), duration: Duration(seconds: 30)));
     try {
-      await ResidenteApi.subirComprobanteAbono(abonoId, File(picked.path), monto);
+      await ResidenteApi.subirComprobanteAbono(abonoId, archivo, monto);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(

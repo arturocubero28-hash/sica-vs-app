@@ -4,9 +4,11 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../api/client.dart';
 import '../../api/permisos.dart';
+import '../../api/camara_helper.dart';
 import '../../theme/app_theme.dart';
 
-/// Flujo del guardia (igual que la web): escanear → revisar → registrar.
+/// Flujo del guardia: escanear → revisar → registrar.
+/// Resistente a reinicios de Android (largeHeap + retrieveLostData).
 class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key});
 
@@ -24,31 +26,49 @@ class _ScannerScreenState extends State<ScannerScreen> {
   bool _procesando = false;
   String? _error;
 
-  // Datos de la visita validada
   Map<String, dynamic>? _visita;
   String _direccion = 'entrada';
   bool _cuentaBloqueada = false;
   bool _estaAdentro = false;
   String? _mensajeValidacion;
 
-  // Rutas de fotos (se suben como multipart, no como base64)
+  // Fotos como archivos (no base64)
   File? _fotoId;
   File? _fotoPlaca;
   File? _fotoNumero;
 
-  // Resultado final
+  // Para saber qué foto se estaba tomando cuando Android mató el proceso
+  String? _fotoEnCurso;
+
   String _resultado = '';
 
   @override
   void initState() {
     super.initState();
     _pedirPermisosCamara();
+    // Recuperar foto perdida por Android matando el proceso
+    _recuperarFotoPerdida();
+  }
+
+  /// Si Android mató el proceso mientras el guardia tomaba una foto,
+  /// recupera la imagen y la asigna donde corresponde.
+  Future<void> _recuperarFotoPerdida() async {
+    final archivo = await CamaraHelper.recuperarPerdida();
+    if (archivo != null && _fotoEnCurso != null && mounted) {
+      setState(() {
+        switch (_fotoEnCurso) {
+          case 'id':     _fotoId = archivo; break;
+          case 'placa':  _fotoPlaca = archivo; break;
+          case 'numero': _fotoNumero = archivo; break;
+        }
+        _fotoEnCurso = null;
+      });
+    }
   }
 
   Future<void> _pedirPermisosCamara() async {
     final concedido = await PermisosService.pedirCamara();
     if (!concedido && mounted) {
-      // Si el usuario negó el permiso, mostrar diálogo explicativo
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -60,15 +80,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
             'de los visitantes. Por favor habilitalo en Ajustes.',
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                PermisosService.abrirConfiguracion();
-              },
+              onPressed: () { Navigator.pop(context); PermisosService.abrirConfiguracion(); },
               child: const Text('Abrir Ajustes'),
             ),
           ],
@@ -83,7 +97,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
     _codigoCtrl.dispose();
     super.dispose();
   }
-  // ─── Paso 1: Validar QR o código ────────────────────────────────────────────
+
+  // ─── Paso 1: Validar QR ───────────────────────────────────────────────────
   Future<void> _onDeteccion(BarcodeCapture capture) async {
     if (_procesando || _paso != _Paso.scan) return;
     final qrData = capture.barcodes.firstOrNull?.rawValue;
@@ -106,8 +121,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
         _fotoId = null; _fotoPlaca = null; _fotoNumero = null;
         _paso = _Paso.review;
       });
-      // Parar completamente el controller para liberar la cámara.
-      // Sin esto, image_picker choca con MobileScanner al tomar fotos.
+      // Liberar completamente la cámara del escáner antes de abrir image_picker
       await _ctrl.stop();
     } on ApiException catch (e) {
       setState(() => _error = e.message);
@@ -120,16 +134,21 @@ class _ScannerScreenState extends State<ScannerScreen> {
     }
   }
 
-  // ─── Paso 2: Tomar fotos ────────────────────────────────────────────────────
+  // ─── Paso 2: Tomar fotos ──────────────────────────────────────────────────
   Future<void> _tomarFoto(String cual) async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 50,
-        maxWidth: 1024,
-        maxHeight: 1024);
-    if (picked == null || !mounted) return;
-    final archivo = File(picked.path);
+    // Guardar cuál foto se está tomando ANTES de abrir la cámara.
+    // Si Android mata el proceso, initState lo recupera.
+    _fotoEnCurso = cual;
+
+    final archivo = await CamaraHelper.capturar(
+      fuente: ImageSource.camera,
+      quality: 50,
+      maxSize: 1024,
+    );
+
+    _fotoEnCurso = null;
+    if (archivo == null || !mounted) return;
+
     setState(() {
       switch (cual) {
         case 'id':     _fotoId = archivo; break;
@@ -139,7 +158,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     });
   }
 
-  // ─── Paso 3: Registrar el acceso ────────────────────────────────────────────
+  // ─── Paso 3: Registrar acceso ─────────────────────────────────────────────
   bool get _puedeRegistrar {
     if (_direccion == 'salida') return true;
     if (_fotoId == null) return false;
@@ -180,7 +199,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     _ctrl.start();
   }
 
-  // ─── UI ─────────────────────────────────────────────────────────────────────
+  // ─── UI ───────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     switch (_paso) {
@@ -193,7 +212,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
   Widget _buildScan() {
     return Stack(children: [
       MobileScanner(controller: _ctrl, onDetect: _onDeteccion),
-      // Marco
       Center(child: Container(
         width: 240, height: 240,
         decoration: BoxDecoration(
@@ -204,17 +222,13 @@ class _ScannerScreenState extends State<ScannerScreen> {
       if (_procesando)
         Container(color: Colors.black54,
             child: const Center(child: CircularProgressIndicator(color: AppColors.naranja))),
-      // Error
       if (_error != null)
         Positioned(top: 20, left: 16, right: 16,
           child: Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-                color: AppColors.rojo, borderRadius: BorderRadius.circular(12)),
-            child: Text(_error!, style: const TextStyle(color: Colors.white),
-                textAlign: TextAlign.center),
+            decoration: BoxDecoration(color: AppColors.rojo, borderRadius: BorderRadius.circular(12)),
+            child: Text(_error!, style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
           )),
-      // Entrada manual (código de delivery)
       Positioned(bottom: 24, left: 16, right: 16,
         child: Container(
           padding: const EdgeInsets.all(12),
@@ -229,15 +243,13 @@ class _ScannerScreenState extends State<ScannerScreen> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 hintText: 'Código de delivery (manual)',
-                border: InputBorder.none,
-                isDense: true,
+                border: InputBorder.none, isDense: true,
                 contentPadding: EdgeInsets.symmetric(horizontal: 8),
               ),
             )),
             ElevatedButton(
               onPressed: _procesando ? null : () => _validar(_codigoCtrl.text),
-              style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
               child: const Text('Validar'),
             ),
           ]),
@@ -256,7 +268,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
     final generadaPor = v['generada_por']?.toString();
 
     return ListView(padding: const EdgeInsets.all(16), children: [
-      // Aviso de "está adentro"
       if (_estaAdentro && _mensajeValidacion != null)
         Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -269,12 +280,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
           child: Row(children: [
             const Icon(Icons.info_outline, color: AppColors.azul, size: 20),
             const SizedBox(width: 10),
-            Expanded(child: Text(_mensajeValidacion!,
-                style: const TextStyle(color: AppColors.azul, fontSize: 13))),
+            Expanded(child: Text(_mensajeValidacion!, style: const TextStyle(color: AppColors.azul, fontSize: 13))),
           ]),
         ),
-
-      // Advertencia de cuenta bloqueada
       if (_cuentaBloqueada)
         Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -288,31 +296,23 @@ class _ScannerScreenState extends State<ScannerScreen> {
             Icon(Icons.warning_amber, color: AppColors.rojo, size: 20),
             SizedBox(width: 10),
             Expanded(child: Text(
-              'La cuenta de esta casa está BLOQUEADA POR MORA. Verificá con administración antes de dar acceso.',
+              'CUENTA BLOQUEADA POR MORA. Verificá con administración antes de dar acceso.',
               style: TextStyle(color: AppColors.rojo, fontSize: 13, fontWeight: FontWeight.w600),
             )),
           ]),
         ),
-
-      // Datos de la visita
       Card(child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Container(
               width: 52, height: 52,
-              decoration: BoxDecoration(
-                color: AppColors.azul.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(
-                tipo == 'repartidor' ? Icons.delivery_dining : Icons.person,
-                color: AppColors.azul, size: 28),
+              decoration: BoxDecoration(color: AppColors.azul.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
+              child: Icon(tipo == 'repartidor' ? Icons.delivery_dining : Icons.person, color: AppColors.azul, size: 28),
             ),
             const SizedBox(width: 14),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(nombre, style: const TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.azul)),
+              Text(nombre, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.azul)),
               Text('Tipo: $tipo', style: const TextStyle(fontSize: 13, color: AppColors.gris)),
             ])),
           ]),
@@ -320,13 +320,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
           if (docId != null && docId.isNotEmpty) _DatoFila('Identidad', docId),
           if (empresa != null && empresa.isNotEmpty) _DatoFila('Empresa', empresa),
           if (enVehiculo) _DatoFila('Placa', placa ?? 'No registrada'),
-          if (generadaPor != null && generadaPor.isNotEmpty)
-            _DatoFila('Autorizado por', generadaPor),
+          if (generadaPor != null && generadaPor.isNotEmpty) _DatoFila('Autorizado por', generadaPor),
         ]),
       )),
       const SizedBox(height: 14),
-
-      // Dirección: entrada / salida
       Row(children: [
         for (final d in [('entrada', 'Entrada', Icons.login), ('salida', 'Salida', Icons.logout)])
           Expanded(child: Padding(
@@ -339,74 +336,45 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 decoration: BoxDecoration(
                   color: _direccion == d.$1 ? AppColors.azul : Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: _direccion == d.$1 ? AppColors.azul : AppColors.borde),
+                  border: Border.all(color: _direccion == d.$1 ? AppColors.azul : AppColors.borde),
                 ),
                 child: Column(children: [
                   Icon(d.$3, color: _direccion == d.$1 ? Colors.white : AppColors.gris),
                   const SizedBox(height: 4),
-                  Text(d.$2, style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: _direccion == d.$1 ? Colors.white : AppColors.gris,
-                  )),
+                  Text(d.$2, style: TextStyle(fontWeight: FontWeight.w700, color: _direccion == d.$1 ? Colors.white : AppColors.gris)),
                 ]),
               ),
             ),
           )),
       ]),
       const SizedBox(height: 14),
-
-      // Fotos (solo para entrada)
       if (_direccion == 'entrada') ...[
-        const Text('Fotos de registro',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
+        const Text('Fotos de registro', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
         const SizedBox(height: 8),
-        _FotoBoton(
-          label: 'Foto de identidad *',
-          tomada: _fotoId != null,
-          onTap: () => _tomarFoto('id'),
-        ),
+        _FotoBoton(label: 'Foto de identidad *', tomada: _fotoId != null, onTap: () => _tomarFoto('id')),
         if (_visita?['en_vehiculo'] == true)
-          _FotoBoton(
-            label: 'Foto de la placa *',
-            tomada: _fotoPlaca != null,
-            onTap: () => _tomarFoto('placa'),
-          ),
-        _FotoBoton(
-          label: 'Foto del número asignado (opcional)',
-          tomada: _fotoNumero != null,
-          onTap: () => _tomarFoto('numero'),
-        ),
+          _FotoBoton(label: 'Foto de la placa *', tomada: _fotoPlaca != null, onTap: () => _tomarFoto('placa')),
+        _FotoBoton(label: 'Foto del número asignado (opcional)', tomada: _fotoNumero != null, onTap: () => _tomarFoto('numero')),
         const SizedBox(height: 6),
-        const Text('* obligatorias para dar acceso',
-            style: TextStyle(fontSize: 11, color: AppColors.gris)),
+        const Text('* obligatorias para dar acceso', style: TextStyle(fontSize: 11, color: AppColors.gris)),
       ],
-
       if (_error != null) ...[
         const SizedBox(height: 10),
         Text(_error!, style: const TextStyle(color: AppColors.rojo, fontSize: 13)),
       ],
       const SizedBox(height: 18),
-
-      // Botones
       Row(children: [
         Expanded(child: OutlinedButton(
           onPressed: _procesando ? null : _reiniciar,
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
           child: const Text('Cancelar'),
         )),
         const SizedBox(width: 10),
         Expanded(flex: 2, child: ElevatedButton(
           onPressed: (_procesando || !_puedeRegistrar) ? null : _registrar,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _direccion == 'entrada' ? AppColors.verde : AppColors.azul,
-          ),
+          style: ElevatedButton.styleFrom(backgroundColor: _direccion == 'entrada' ? AppColors.verde : AppColors.azul),
           child: _procesando
-              ? const SizedBox(height: 20, width: 20,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
               : Text(_direccion == 'entrada' ? 'Registrar ENTRADA' : 'Registrar SALIDA'),
         )),
       ]),
@@ -420,16 +388,13 @@ class _ScannerScreenState extends State<ScannerScreen> {
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Container(
           padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: AppColors.verde.withOpacity(0.12), shape: BoxShape.circle),
+          decoration: BoxDecoration(color: AppColors.verde.withOpacity(0.12), shape: BoxShape.circle),
           child: const Icon(Icons.check_circle, color: AppColors.verde, size: 72),
         ),
         const SizedBox(height: 20),
-        Text(_resultado, style: const TextStyle(
-            fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.verde)),
+        Text(_resultado, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.verde)),
         const SizedBox(height: 6),
-        Text(_visita?['nombre_visitante']?.toString() ?? '',
-            style: const TextStyle(fontSize: 16, color: AppColors.azul)),
+        Text(_visita?['nombre_visitante']?.toString() ?? '', style: const TextStyle(fontSize: 16, color: AppColors.azul)),
         const SizedBox(height: 32),
         SizedBox(width: double.infinity, child: ElevatedButton.icon(
           onPressed: _reiniciar,
@@ -450,10 +415,8 @@ class _DatoFila extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 6),
     child: Row(children: [
-      SizedBox(width: 120, child: Text(label,
-          style: const TextStyle(fontSize: 13, color: AppColors.gris))),
-      Expanded(child: Text(valor, style: const TextStyle(
-          fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.azul))),
+      SizedBox(width: 120, child: Text(label, style: const TextStyle(fontSize: 13, color: AppColors.gris))),
+      Expanded(child: Text(valor, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.azul))),
     ]),
   );
 }
@@ -480,10 +443,7 @@ class _FotoBoton extends StatelessWidget {
       ),
       title: Text(label, style: const TextStyle(fontSize: 14, color: AppColors.azul)),
       trailing: Text(tomada ? 'Tomada ✓' : 'Tomar',
-          style: TextStyle(
-            fontWeight: FontWeight.w700, fontSize: 13,
-            color: tomada ? AppColors.verde : AppColors.naranja,
-          )),
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: tomada ? AppColors.verde : AppColors.naranja)),
       onTap: onTap,
     ),
   );
