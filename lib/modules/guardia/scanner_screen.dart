@@ -126,9 +126,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 40,
-        maxWidth: 800,
-        maxHeight: 800);
+        imageQuality: 25,   // muy comprimido: cada foto ~50-80KB en base64
+        maxWidth: 640,
+        maxHeight: 640);
     if (picked == null || !mounted) return;
     final b64 = base64Encode(await File(picked.path).readAsBytes());
     if (!mounted) return;

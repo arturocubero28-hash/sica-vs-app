@@ -8,7 +8,7 @@ class ApiConfig {
   // Producción (descomentar cuando tengas el servidor real):
   // static const String baseUrl = 'https://tudominio.com/api/v1';
 
-  static const Duration timeout = Duration(seconds: 15);
+  static const Duration timeout = Duration(seconds: 30);  // más tiempo para fotos en base64
 
   // Headers que ngrok requiere para no mostrar la pantalla de aviso
   static Map<String, String> get headers => {
