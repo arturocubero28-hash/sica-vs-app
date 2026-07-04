@@ -107,6 +107,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
         _fotoId = null; _fotoPlaca = null; _fotoNumero = null;
         _paso = _Paso.review;
       });
+      // Parar completamente el controller para liberar la cámara.
+      // Sin esto, image_picker choca con MobileScanner al tomar fotos.
+      await _ctrl.stop();
     } on ApiException catch (e) {
       setState(() => _error = e.message);
       _ctrl.start();
@@ -123,11 +126,12 @@ class _ScannerScreenState extends State<ScannerScreen> {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 40,   // más bajo para no crashear en teléfonos reales
-        maxWidth: 800,      // suficiente para identificar; no necesita más
+        imageQuality: 40,
+        maxWidth: 800,
         maxHeight: 800);
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
     final b64 = base64Encode(await File(picked.path).readAsBytes());
+    if (!mounted) return;
     setState(() {
       switch (cual) {
         case 'id':     _fotoId = b64; break;
