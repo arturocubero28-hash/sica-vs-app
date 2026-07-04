@@ -284,7 +284,7 @@ class _CuotaCard extends StatelessWidget {
     }
 
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: fuente, imageQuality: 80);
+    final picked = await picker.pickImage(source: fuente, imageQuality: 50, maxWidth: 1024, maxHeight: 1024);
     if (picked == null || !context.mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -377,7 +377,7 @@ class _AbonoCard extends StatelessWidget {
     }
 
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: fuente, imageQuality: 80);
+    final picked = await picker.pickImage(source: fuente, imageQuality: 50, maxWidth: 1024, maxHeight: 1024);
     if (picked == null || !context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Subiendo comprobante…'), duration: Duration(seconds: 30)));

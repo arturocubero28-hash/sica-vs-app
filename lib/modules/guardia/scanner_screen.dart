@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'dart:convert';
 import '../../api/client.dart';
 import '../../api/permisos.dart';
 import '../../theme/app_theme.dart';
@@ -32,10 +31,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
   bool _estaAdentro = false;
   String? _mensajeValidacion;
 
-  // Fotos (base64)
-  String? _fotoId;
-  String? _fotoPlaca;
-  String? _fotoNumero;
+  // Rutas de fotos (se suben como multipart, no como base64)
+  File? _fotoId;
+  File? _fotoPlaca;
+  File? _fotoNumero;
 
   // Resultado final
   String _resultado = '';
@@ -126,17 +125,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 25,   // muy comprimido: cada foto ~50-80KB en base64
-        maxWidth: 640,
-        maxHeight: 640);
+        imageQuality: 50,
+        maxWidth: 1024,
+        maxHeight: 1024);
     if (picked == null || !mounted) return;
-    final b64 = base64Encode(await File(picked.path).readAsBytes());
-    if (!mounted) return;
+    final archivo = File(picked.path);
     setState(() {
       switch (cual) {
-        case 'id':     _fotoId = b64; break;
-        case 'placa':  _fotoPlaca = b64; break;
-        case 'numero': _fotoNumero = b64; break;
+        case 'id':     _fotoId = archivo; break;
+        case 'placa':  _fotoPlaca = archivo; break;
+        case 'numero': _fotoNumero = archivo; break;
       }
     });
   }
@@ -152,14 +150,13 @@ class _ScannerScreenState extends State<ScannerScreen> {
   Future<void> _registrar() async {
     setState(() { _procesando = true; _error = null; });
     try {
-      await ApiClient.post('/visitas/accesos/visita', {
-        'visita_id': _visita?['uuid_publico'] ?? _visita?['id'].toString(),
-        'direccion': _direccion,
-        'acceso_id': 1,
-        if (_fotoId != null) 'foto_identidad': _fotoId,
-        if (_fotoPlaca != null) 'foto_placa': _fotoPlaca,
-        if (_fotoNumero != null) 'foto_numero_asignado': _fotoNumero,
-      });
+      await ApiClient.registrarAcceso(
+        visita_id: _visita?['uuid_publico'] ?? _visita?['id'].toString(),
+        direccion: _direccion,
+        fotoId: _fotoId,
+        fotoPlaca: _fotoPlaca,
+        fotoNumero: _fotoNumero,
+      );
       setState(() {
         _resultado = _direccion == 'entrada' ? 'Entrada registrada' : 'Salida registrada';
         _paso = _Paso.done;

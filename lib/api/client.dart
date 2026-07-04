@@ -92,6 +92,39 @@ class ApiClient {
     return _parse(res);
   }
 
+  /// Registra acceso del guardia subiendo las fotos como archivos multipart.
+  /// Evita el límite de 1MB de ngrok al no usar base64.
+  static Future<dynamic> registrarAcceso({
+    required String visita_id,
+    required String direccion,
+    File? fotoId,
+    File? fotoPlaca,
+    File? fotoNumero,
+  }) async {
+    final token = await AuthStorage.getToken();
+    final req = http.MultipartRequest(
+        'POST', Uri.parse('${ApiConfig.baseUrl}/visitas/accesos/visita'));
+    req.headers.addAll({
+      'Authorization': 'Bearer $token',
+      'ngrok-skip-browser-warning': 'true',
+    });
+    req.fields['visita_id']  = visita_id;
+    req.fields['direccion']  = direccion;
+    req.fields['acceso_id']  = '1';
+    if (fotoId != null) {
+      req.files.add(await http.MultipartFile.fromPath('foto_identidad', fotoId.path));
+    }
+    if (fotoPlaca != null) {
+      req.files.add(await http.MultipartFile.fromPath('foto_placa', fotoPlaca.path));
+    }
+    if (fotoNumero != null) {
+      req.files.add(await http.MultipartFile.fromPath('foto_numero_asignado', fotoNumero.path));
+    }
+    final streamed = await req.send().timeout(ApiConfig.timeout);
+    final res = await http.Response.fromStream(streamed);
+    return _parse(res);
+  }
+
   static dynamic _parse(http.Response res) {
     final body = jsonDecode(utf8.decode(res.bodyBytes));
     if (res.statusCode >= 200 && res.statusCode < 300) {
