@@ -32,6 +32,8 @@ dependencies:
   flutter_local_notifications: ^17.0.0
   # Permisos en tiempo de ejecución (cámara, notificaciones)
   permission_handler: ^11.3.1
+  # Bloqueo biométrico (huella / rostro)
+  local_auth: ^2.2.0
 
 dev_dependencies:
   flutter_test:

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../api/client.dart';
+import '../../api/bloqueo_biometrico.dart';
 import '../../theme/app_theme.dart';
 import '../../screens/login_screen.dart';
 import 'mi_edificio_screen.dart';
@@ -20,9 +21,32 @@ class _MasScreenState extends State<MasScreen> {
   Map<String, dynamic>? _cuenta;
   bool _esDuenoEdificio = false;
   bool _cargando = true;
+  bool _biometriaDisponible = false;
+  bool _bloqueoActivo = false;
 
   @override
-  void initState() { super.initState(); _cargar(); }
+  void initState() { super.initState(); _cargar(); _cargarBiometria(); }
+
+  Future<void> _cargarBiometria() async {
+    final disp = await BloqueoBiometrico.disponible();
+    final activo = await BloqueoBiometrico.estaActivo();
+    if (mounted) setState(() {
+      _biometriaDisponible = disp;
+      _bloqueoActivo = activo;
+    });
+  }
+
+  Future<void> _toggleBloqueo(bool valor) async {
+    final ok = await BloqueoBiometrico.activar(valor);
+    if (mounted) {
+      setState(() => _bloqueoActivo = ok ? valor : _bloqueoActivo);
+      if (!ok && valor) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('No se pudo activar. Verificá tu huella.'),
+            backgroundColor: AppColors.rojo));
+      }
+    }
+  }
 
   Future<void> _cargar() async {
     try {
@@ -115,6 +139,30 @@ class _MasScreenState extends State<MasScreen> {
             subtitulo: 'Códigos de enrolamiento para tus inquilinos',
             onTap: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const MiEdificioScreen())),
+          ),
+
+        // Toggle de bloqueo con huella (solo si el dispositivo lo soporta)
+        if (_biometriaDisponible)
+          Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: SwitchListTile(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              secondary: Container(
+                width: 42, height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.verde.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.fingerprint, color: AppColors.verde, size: 22),
+              ),
+              title: const Text('Bloquear con huella',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
+              subtitle: const Text('Pedir tu huella al abrir la app',
+                  style: TextStyle(fontSize: 12, color: AppColors.gris)),
+              value: _bloqueoActivo,
+              activeColor: AppColors.naranja,
+              onChanged: _toggleBloqueo,
+            ),
           ),
 
         _OpcionTile(
