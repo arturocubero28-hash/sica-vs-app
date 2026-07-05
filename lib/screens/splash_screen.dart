@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../api/client.dart';
 import '../api/bloqueo_biometrico.dart';
+import '../api/recuperacion_comprobante.dart';
 import '../theme/app_theme.dart';
 import '../modules/shared/role_router.dart';
 import 'login_screen.dart';
@@ -32,15 +33,17 @@ class _SplashScreenState extends State<SplashScreen> {
     final rol   = await AuthStorage.getRol();
 
     if (token != null && rol != null) {
+      // Intentar recuperar comprobante pendiente (Android mató el proceso
+      // mientras el residente tomaba la foto del comprobante)
+      await _recuperarComprobanteSiHubo();
+
       // Si el bloqueo biométrico está activo, pedir huella antes de entrar.
-      // La sesión sigue viva; esto solo protege el acceso a la información.
       final bloqueoActivo = await BloqueoBiometrico.estaActivo();
       if (bloqueoActivo) {
         final ok = await BloqueoBiometrico.autenticar(
           motivo: 'Desbloqueá SICA-VS con tu huella',
         );
         if (!ok) {
-          // No autenticó: mostrar pantalla de reintento, sin cerrar sesión
           if (mounted) setState(() => _bloqueado = true);
           return;
         }
@@ -50,6 +53,42 @@ class _SplashScreenState extends State<SplashScreen> {
     } else {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const LoginScreen()));
+    }
+  }
+
+  /// Si Android mató la app mientras el residente tomaba la foto del
+  /// comprobante, recupera la foto y completa la subida automáticamente.
+  Future<void> _recuperarComprobanteSiHubo() async {
+    final pendiente = await RecuperacionComprobante.leerPendiente();
+    if (pendiente == null) return;
+
+    final foto = await RecuperacionComprobante.recuperarFotoPerdida();
+    if (foto == null) {
+      // No hay foto para recuperar — limpiar el estado huérfano
+      await RecuperacionComprobante.limpiar();
+      return;
+    }
+
+    final id    = pendiente['id']?.toString() ?? '';
+    final monto = (pendiente['monto'] as num?)?.toDouble() ?? 0.0;
+    final tipo  = pendiente['tipo']?.toString() ?? 'cuota';
+
+    if (id.isEmpty) {
+      await RecuperacionComprobante.limpiar();
+      return;
+    }
+
+    try {
+      if (tipo == 'cuota') {
+        await ResidenteApi.subirComprobante(id, foto, monto);
+      } else {
+        await ResidenteApi.subirComprobanteAbono(id, foto, monto);
+      }
+      await RecuperacionComprobante.limpiar();
+      // El usuario verá el comprobante subido cuando llegue a la pantalla de cuotas
+    } catch (_) {
+      // Si falla, limpiar igualmente para no quedar en loop infinito
+      await RecuperacionComprobante.limpiar();
     }
   }
 

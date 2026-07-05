@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../api/client.dart';
 import '../../api/permisos.dart';
 import '../../api/camara_helper.dart';
+import '../../api/recuperacion_comprobante.dart';
 import '../../theme/app_theme.dart';
 
 final _fmt = NumberFormat.currency(locale: 'es_HN', symbol: 'L ');
@@ -291,9 +292,14 @@ class _CuotaCard extends StatelessWidget {
       }
     }
 
-    // CamaraHelper maneja retrieveLostData() en caso de que Android mate el proceso
+    // Persistir antes de abrir la cámara — si Android mata el proceso, el SplashScreen
+    // recupera la foto y completa la subida automáticamente
+    await RecuperacionComprobante.guardar(id: cuotaId, monto: monto, tipo: 'cuota');
     final archivo = await CamaraHelper.capturar(fuente: fuente, quality: 50, maxSize: 1024);
-    if (archivo == null || !context.mounted) return;
+    if (archivo == null || !context.mounted) {
+      await RecuperacionComprobante.limpiar();
+      return;
+    }
 
     _subidasEnCurso.add(cuotaId);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -305,6 +311,7 @@ class _CuotaCard extends StatelessWidget {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('✓ Comprobante enviado'), backgroundColor: AppColors.verde));
+      await RecuperacionComprobante.limpiar();
       onPagada();
     } catch (e) {
       if (!context.mounted) return;
@@ -313,6 +320,7 @@ class _CuotaCard extends StatelessWidget {
       _mostrarErrorArchivo(context, e.toString());
     } finally {
       _subidasEnCurso.remove(cuotaId);
+      await RecuperacionComprobante.limpiar();
     }
   }
 }
