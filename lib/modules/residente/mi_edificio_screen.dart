@@ -50,7 +50,7 @@ class _MiEdificioScreenState extends State<MiEdificioScreen> {
     setState(() => _generando = true);
     try {
       await ApiClient.post('/unidades/enrolamiento/generar', {
-        'unidad_id': _edificioSel,
+        'edificio_id': _edificioSel,
         if (_aptoCtrl.text.trim().isNotEmpty) 'apartamento': _aptoCtrl.text.trim(),
         if (_notaCtrl.text.trim().isNotEmpty) 'nota': _notaCtrl.text.trim(),
       });
@@ -157,7 +157,7 @@ class _CodigoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cod = codigo['codigo']?.toString() ?? '';
-    final usado = codigo['usado'] == true;
+    final usado = codigo['estado'] == 'usado';
     final apto = codigo['apartamento_sugerido']?.toString();
     final nota = codigo['nota']?.toString();
 
