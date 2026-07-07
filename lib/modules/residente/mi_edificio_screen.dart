@@ -129,22 +129,80 @@ class _MiEdificioScreenState extends State<MiEdificioScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // ── Códigos existentes ──
-                  const Text('Códigos generados',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
-                  const SizedBox(height: 8),
-                  if (_codigos.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Center(child: Text('Aún no generaste códigos',
-                          style: TextStyle(color: AppColors.gris))),
-                    )
-                  else
-                    ..._codigos.map((c) => _CodigoCard(codigo: c, onBorrado: _cargar)),
+                  // ── Códigos activos (aún no usados) ──
+                  Builder(builder: (_) {
+                    final activos = _codigos.where((c) => c['estado'] != 'usado').toList();
+                    final usados  = _codigos.where((c) => c['estado'] == 'usado').toList();
+
+                    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Códigos activos (${activos.length})',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
+                      const SizedBox(height: 8),
+                      if (activos.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Text('No tenés códigos activos. Generá uno arriba.',
+                              style: TextStyle(color: AppColors.gris)),
+                        )
+                      else
+                        ...activos.map((c) => _CodigoCard(codigo: c, onBorrado: _cargar)),
+
+                      // ── Inquilinos ya enrolados ──
+                      if (usados.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        Text('Inquilinos ya enrolados (${usados.length})',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
+                        const SizedBox(height: 8),
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              children: usados.map((c) => _InquilinoRow(codigo: c)).toList(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ]);
+                  }),
                 ],
               ),
             ),
+    );
+  }
+}
+
+/// Fila de un inquilino ya enrolado: apartamento, nota y fecha.
+class _InquilinoRow extends StatelessWidget {
+  final Map codigo;
+  const _InquilinoRow({required this.codigo});
+
+  @override
+  Widget build(BuildContext context) {
+    final apto = codigo['apartamento_sugerido']?.toString();
+    final nota = codigo['nota']?.toString();
+    final usadoEn = codigo['usado_en'] != null
+        ? DateTime.tryParse(codigo['usado_en'].toString())
+        : null;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(children: [
+        const Icon(Icons.person, size: 18, color: AppColors.verde),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(apto != null ? 'Apto $apto' : 'Sin apartamento asignado',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+            if (nota != null && nota.isNotEmpty)
+              Text(nota, style: const TextStyle(fontSize: 12, color: AppColors.gris)),
+          ]),
+        ),
+        if (usadoEn != null)
+          Text('${usadoEn.day}/${usadoEn.month}/${usadoEn.year}',
+              style: const TextStyle(fontSize: 11.5, color: AppColors.gris)),
+      ]),
     );
   }
 }
