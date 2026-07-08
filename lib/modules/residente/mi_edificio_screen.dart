@@ -65,12 +65,24 @@ class _MiEdificioScreenState extends State<MiEdificioScreen> {
 
   Future<void> _generar() async {
     if (_edificioSel == null) return;
+    if (_aptoCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('El número de apartamento es obligatorio'),
+          backgroundColor: AppColors.rojo));
+      return;
+    }
+    if (_notaCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('El nombre del inquilino es obligatorio'),
+          backgroundColor: AppColors.rojo));
+      return;
+    }
     setState(() => _generando = true);
     try {
       await ApiClient.post('/unidades/enrolamiento/generar', {
         'edificio_id': _edificioSel,
-        if (_aptoCtrl.text.trim().isNotEmpty) 'apartamento': _aptoCtrl.text.trim(),
-        if (_notaCtrl.text.trim().isNotEmpty) 'nota': _notaCtrl.text.trim(),
+        'apartamento': _aptoCtrl.text.trim(),
+        'nota': _notaCtrl.text.trim(),
       });
       _aptoCtrl.clear(); _notaCtrl.clear();
       await _cargar();
@@ -126,13 +138,13 @@ class _MiEdificioScreenState extends State<MiEdificioScreen> {
                         TextField(
                           controller: _aptoCtrl,
                           decoration: const InputDecoration(
-                              labelText: 'Apartamento sugerido (ej. 2B) — opcional'),
+                              labelText: 'Número de apartamento *'),
                         ),
                         const SizedBox(height: 10),
                         TextField(
                           controller: _notaCtrl,
                           decoration: const InputDecoration(
-                              labelText: 'Nota (ej. nombre del inquilino) — opcional'),
+                              labelText: 'Nombre del inquilino *'),
                         ),
                         const SizedBox(height: 14),
                         SizedBox(width: double.infinity,
@@ -169,7 +181,7 @@ class _MiEdificioScreenState extends State<MiEdificioScreen> {
                       // ── Inquilinos ya enrolados ──
                       if (usados.isNotEmpty) ...[
                         const SizedBox(height: 20),
-                        Text('Inquilinos ya enrolados (${usados.length})',
+                        Text('Historial de enrolamiento (${usados.length})',
                             style: const TextStyle(
                                 fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
                         const SizedBox(height: 8),
