@@ -15,6 +15,7 @@ class MiEdificioScreen extends StatefulWidget {
 class _MiEdificioScreenState extends State<MiEdificioScreen> {
   List<dynamic> _edificios = [];
   List<dynamic> _codigos = [];
+  List<dynamic> _apartamentos = [];
   bool _cargando = true;
   String? _edificioSel;
   final _aptoCtrl = TextEditingController();
@@ -32,17 +33,34 @@ class _MiEdificioScreenState extends State<MiEdificioScreen> {
     try {
       final edifs = await ApiClient.get('/unidades/mis-edificios');
       final cods = await ApiClient.get('/unidades/enrolamiento/mis-codigos');
+      final edificiosList = edifs as List<dynamic>;
+      List<dynamic> aptos = [];
+      String? sel = _edificioSel;
+      if (edificiosList.isNotEmpty) {
+        sel ??= edificiosList.first['id']?.toString()
+            ?? edificiosList.first['uuid_publico']?.toString();
+        try {
+          aptos = await ApiClient.get('/unidades/mis-edificios/$sel/apartamentos') as List<dynamic>;
+        } catch (_) {}
+      }
       setState(() {
-        _edificios = edifs as List<dynamic>;
+        _edificios = edificiosList;
         _codigos = cods as List<dynamic>;
-        if (_edificios.isNotEmpty && _edificioSel == null) {
-          _edificioSel = _edificios.first['id']?.toString()
-              ?? _edificios.first['uuid_publico']?.toString();
-        }
+        _apartamentos = aptos;
+        _edificioSel = sel;
       });
     } catch (_) {} finally {
       if (mounted) setState(() => _cargando = false);
     }
+  }
+
+  Future<void> _cambiarEdificio(String? id) async {
+    if (id == null) return;
+    setState(() { _edificioSel = id; _apartamentos = []; });
+    try {
+      final aptos = await ApiClient.get('/unidades/mis-edificios/$id/apartamentos');
+      if (mounted) setState(() => _apartamentos = aptos as List<dynamic>);
+    } catch (_) {}
   }
 
   Future<void> _generar() async {
@@ -102,7 +120,7 @@ class _MiEdificioScreenState extends State<MiEdificioScreen> {
                                 DropdownMenuItem(
                                     value: e['id']?.toString() ?? e['uuid_publico']?.toString(),
                                     child: Text(e['identificador']?.toString() ?? ''))).toList(),
-                            onChanged: (v) => setState(() => _edificioSel = v),
+                            onChanged: (v) => _cambiarEdificio(v),
                           ),
                         const SizedBox(height: 10),
                         TextField(
@@ -163,6 +181,76 @@ class _MiEdificioScreenState extends State<MiEdificioScreen> {
                             ),
                           ),
                         ),
+                      ],
+
+                      // ── Todos los apartamentos del edificio ──
+                      if (_apartamentos.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        Text('Apartamentos del edificio (${_apartamentos.length})',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
+                        const SizedBox(height: 8),
+                        ...(_apartamentos.map((a) {
+                          final apto = a['apartamento']?.toString() ?? '—';
+                          final titular = a['titular'] as Map? ?? {};
+                          final nombre = titular['nombre']?.toString() ?? '—';
+                          final bloqueada = a['bloqueada'] == true;
+                          final tarifa = a['tarifa']?.toString();
+                          final monto = a['monto'];
+                          final tipoCuenta = a['tipo_cuenta']?.toString() ?? '';
+                          final esAdmin = tipoCuenta == 'edificio_admin' || tipoCuenta == 'edificio_contenedor';
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: Container(
+                                width: 40, height: 40,
+                                decoration: BoxDecoration(
+                                  color: (esAdmin ? AppColors.azul : AppColors.naranja).withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  esAdmin ? Icons.admin_panel_settings : Icons.home,
+                                  color: esAdmin ? AppColors.azul : AppColors.naranja, size: 20,
+                                ),
+                              ),
+                              title: Row(children: [
+                                Text('Apto $apto',
+                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                                if (esAdmin) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.azul, borderRadius: BorderRadius.circular(4)),
+                                    child: const Text('Admin', style: TextStyle(
+                                        color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                                  ),
+                                ],
+                              ]),
+                              subtitle: Text(nombre,
+                                  style: const TextStyle(fontSize: 12.5, color: AppColors.gris)),
+                              trailing: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  if (tarifa != null)
+                                    Text('L ${monto ?? "—"}',
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: (bloqueada ? AppColors.rojo : AppColors.verde).withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(4)),
+                                    child: Text(bloqueada ? 'Bloqueada' : 'Al día',
+                                        style: TextStyle(
+                                            color: bloqueada ? AppColors.rojo : AppColors.verde,
+                                            fontSize: 11, fontWeight: FontWeight.w600)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        })),
                       ],
                     ]);
                   }),
