@@ -97,6 +97,7 @@ class ApiClient {
   static Future<dynamic> registrarAcceso({
     required String visita_id,
     required String direccion,
+    String? placaVehiculo,
     File? fotoId,
     File? fotoPlaca,
     File? fotoNumero,
@@ -111,6 +112,9 @@ class ApiClient {
     req.fields['visita_id']  = visita_id;
     req.fields['direccion']  = direccion;
     req.fields['acceso_id']  = '1';
+    if (placaVehiculo != null && placaVehiculo.isNotEmpty) {
+      req.fields['placa_vehiculo'] = placaVehiculo;
+    }
     if (fotoId != null) {
       req.files.add(await http.MultipartFile.fromPath('foto_identidad', fotoId.path));
     }

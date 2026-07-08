@@ -459,7 +459,6 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
   final _nombreCtrl   = TextEditingController();
   final _telefonoCtrl = TextEditingController();
   final _empresaCtrl  = TextEditingController();
-  final _placaCtrl    = TextEditingController();
   bool _enVehiculo    = false;
   DateTime? _validoHasta;
   bool _creando = false;
@@ -468,7 +467,7 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
   @override
   void dispose() {
     _nombreCtrl.dispose(); _telefonoCtrl.dispose();
-    _empresaCtrl.dispose(); _placaCtrl.dispose();
+    _empresaCtrl.dispose();
     super.dispose();
   }
 
@@ -503,8 +502,6 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
         if (_tipo == 'repartidor' && _empresaCtrl.text.trim().isNotEmpty)
           'empresa': _empresaCtrl.text.trim(),
         'en_vehiculo': _enVehiculo,
-        if (_enVehiculo && _placaCtrl.text.trim().isNotEmpty)
-          'placa_vehiculo': _placaCtrl.text.trim(),
         if (_tipo == 'recurrente' && _validoHasta != null)
           'valido_hasta': _validoHasta!.toIso8601String(),
       };
@@ -648,20 +645,12 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
             contentPadding: EdgeInsets.zero,
             title: const Text('Llega en vehículo',
                 style: TextStyle(fontSize: 14, color: AppColors.azul)),
+            subtitle: const Text('El guardia le pedirá el número de placa al entrar',
+                style: TextStyle(fontSize: 11.5, color: AppColors.gris)),
             value: _enVehiculo,
             activeColor: AppColors.naranja,
             onChanged: (v) => setState(() => _enVehiculo = v),
           ),
-
-          if (_enVehiculo)
-            TextField(
-              controller: _placaCtrl,
-              textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(
-                labelText: 'Placa del vehículo (opcional)',
-                prefixIcon: Icon(Icons.directions_car_outlined),
-              ),
-            ),
 
           if (_error != null) ...[
             const SizedBox(height: 10),

@@ -22,6 +22,7 @@ enum _Paso { scan, review, done }
 class _ScannerScreenState extends State<ScannerScreen> {
   final MobileScannerController _ctrl = MobileScannerController();
   final _codigoCtrl = TextEditingController();
+  final _placaCtrl  = TextEditingController(); // placa que el guardia digita
 
   _Paso _paso = _Paso.scan;
   bool _procesando = false;
@@ -198,7 +199,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
   bool get _puedeRegistrar {
     if (_direccion == 'salida') return true;
     if (_fotoId == null) return false;
-    if (_visita?['en_vehiculo'] == true && _fotoPlaca == null) return false;
+    if (_visita?['en_vehiculo'] == true) {
+      if (_fotoPlaca == null) return false;
+      if (_placaCtrl.text.trim().isEmpty) return false; // placa obligatoria
+    }
     return true;
   }
 
@@ -208,6 +212,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       await ApiClient.registrarAcceso(
         visita_id: _visita?['uuid_publico'] ?? _visita?['id'].toString(),
         direccion: _direccion,
+        placaVehiculo: _placaCtrl.text.trim(),
         fotoId: _fotoId,
         fotoPlaca: _fotoPlaca,
         fotoNumero: _fotoNumero,
@@ -233,6 +238,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       _visita = null; _error = null;
       _fotoId = null; _fotoPlaca = null; _fotoNumero = null;
       _codigoCtrl.clear();
+      _placaCtrl.clear();
     });
     _ctrl.start();
   }
@@ -390,8 +396,20 @@ class _ScannerScreenState extends State<ScannerScreen> {
         const Text('Fotos de registro', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
         const SizedBox(height: 8),
         _FotoBoton(label: 'Foto de identidad *', tomada: _fotoId != null, onTap: () => _tomarFoto('id')),
-        if (_visita?['en_vehiculo'] == true)
+        if (_visita?['en_vehiculo'] == true) ...[
           _FotoBoton(label: 'Foto de la placa *', tomada: _fotoPlaca != null, onTap: () => _tomarFoto('placa')),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _placaCtrl,
+            textCapitalization: TextCapitalization.characters,
+            onChanged: (_) => setState(() {}), // rebuild para actualizar _puedeRegistrar
+            decoration: const InputDecoration(
+              labelText: 'Número de placa del vehículo *',
+              prefixIcon: Icon(Icons.directions_car_outlined),
+              hintText: 'Ej. AAA-1234',
+            ),
+          ),
+        ],
         _FotoBoton(label: 'Foto del número asignado (opcional)', tomada: _fotoNumero != null, onTap: () => _tomarFoto('numero')),
         const SizedBox(height: 6),
         const Text('* obligatorias para dar acceso', style: TextStyle(fontSize: 11, color: AppColors.gris)),
