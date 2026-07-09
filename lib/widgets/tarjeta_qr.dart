@@ -51,6 +51,17 @@ class TarjetaQR extends StatelessWidget {
     return '${p(d.day)}/${p(d.month)}/${d.year} a las ${p(d.hour)}:${p(d.minute)}';
   }
 
+  /// Devuelve el valor del campo si existe y no está vacío; si no, null.
+  String? _campo(String clave) {
+    final v = visita[clave];
+    if (v == null) return null;
+    final s = v.toString().trim();
+    return s.isEmpty ? null : s;
+  }
+
+  String? get _placa => _campo('placa_vehiculo');
+  String? get _empresa => _campo('empresa');
+
   @override
   Widget build(BuildContext context) {
     final token = visita['qr_token']?.toString();
@@ -79,9 +90,16 @@ class TarjetaQR extends StatelessWidget {
             // Logo en círculo blanco
             Container(
               width: 116, height: 116,
+              padding: const EdgeInsets.all(6),
               decoration: const BoxDecoration(
                 color: Colors.white, shape: BoxShape.circle),
-              child: const Icon(Icons.shield, color: AppColors.azul, size: 62),
+              child: Image.asset(
+                'assets/images/logo.png',
+                fit: BoxFit.contain,
+                // Si el asset no carga, el círculo blanco queda con el escudo
+                errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.shield, color: AppColors.azul, size: 62),
+              ),
             ),
             const SizedBox(width: 22),
             const Column(
@@ -98,11 +116,11 @@ class TarjetaQR extends StatelessWidget {
           ]),
         ),
 
-        const SizedBox(height: 40),
+        const SizedBox(height: 24),
 
         // ── QR con marco naranja ──
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             border: Border.all(color: AppColors.naranja, width: 5),
             borderRadius: BorderRadius.circular(24),
@@ -110,7 +128,7 @@ class TarjetaQR extends StatelessWidget {
           child: QrImageView(
             data: token,
             version: QrVersions.auto,
-            size: 380,
+            size: 320,
             padding: EdgeInsets.zero,
             errorCorrectionLevel: QrErrorCorrectLevel.H,
             backgroundColor: Colors.white,
@@ -121,10 +139,10 @@ class TarjetaQR extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(height: 50),
+        const SizedBox(height: 22),
         // ── Línea separadora ──
         Container(height: 2, width: kAnchoTarjeta - 160, color: const Color(0xFFE6E6E6)),
-        const SizedBox(height: 35),
+        const SizedBox(height: 18),
 
         // ── Nombre del visitante ──
         Padding(
@@ -132,51 +150,48 @@ class TarjetaQR extends StatelessWidget {
           child: Text(
             visita['nombre_visitante']?.toString() ?? '',
             textAlign: TextAlign.center,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-                fontSize: 34, fontWeight: FontWeight.w800, color: AppColors.azul),
+                fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.azul),
           ),
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 12),
 
         // ── Pill del tipo de visita ──
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
           decoration: BoxDecoration(
             color: AppColors.naranja,
             borderRadius: BorderRadius.circular(18),
           ),
           child: Text(_tipoTexto, style: const TextStyle(
-              fontSize: 19, fontWeight: FontWeight.w800, color: Colors.white)),
+              fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 12),
 
         // ── Detalles opcionales ──
-        // Envueltos en Flexible: si un visitante tiene nombre largo y los tres
-        // campos opcionales, el bloque se comprime en vez de desbordar la
-        // tarjeta (que tiene altura fija de 880).
-        Flexible(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_validoHasta != null) _detalle('Válido hasta: $_validoHasta'),
-              if (visita['placa_vehiculo'] != null &&
-                  visita['placa_vehiculo'].toString().isNotEmpty)
-                _detalle('Vehículo: ${visita['placa_vehiculo']}'),
-              if (visita['empresa'] != null &&
-                  visita['empresa'].toString().isNotEmpty)
-                _detalle('Empresa: ${visita['empresa']}'),
-            ],
+        // Expanded absorbe el espacio sobrante y centra los detalles.
+        // No lleva Spacer() al lado: dos widgets flexibles compitiendo por el
+        // mismo espacio dejaban a los detalles con altura cero.
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                if (_validoHasta != null) _detalle('Válido hasta: $_validoHasta'),
+                if (_placa != null) _detalle('Vehículo: $_placa'),
+                if (_empresa != null) _detalle('Empresa: $_empresa'),
+              ],
+            ),
           ),
         ),
-
-        const Spacer(),
 
         // ── Pie de página ──
         const Text('Presente este código al guardia en la entrada',
             style: TextStyle(fontSize: 15, color: Color(0xFF969696))),
-        const SizedBox(height: 31),
+        const SizedBox(height: 18),
 
         // ── Franja inferior naranja ──
         Container(height: 14, width: double.infinity, color: AppColors.naranja),
