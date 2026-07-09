@@ -147,6 +147,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     try {
       final res = await ApiClient.post('/visitas/qr/validar', {'token': token.trim()});
       final data = res as Map<String, dynamic>;
+      if (!mounted) return;
       setState(() {
         _visita = data['visita'] as Map<String, dynamic>;
         _direccion = data['direccion_sugerida']?.toString() ?? 'entrada';
@@ -156,16 +157,17 @@ class _ScannerScreenState extends State<ScannerScreen> {
         _fotoId = null; _fotoPlaca = null; _fotoNumero = null;
         _paso = _Paso.review;
       });
-      // Liberar completamente la cámara del escáner antes de abrir image_picker
       await _ctrl.stop();
     } on ApiException catch (e) {
+      if (!mounted) return;
       setState(() => _error = e.message);
       _ctrl.start();
     } catch (_) {
+      if (!mounted) return;
       setState(() => _error = 'No se pudo validar el código');
       _ctrl.start();
     } finally {
-      setState(() => _procesando = false);
+      if (mounted) setState(() => _procesando = false);
     }
   }
 
@@ -217,17 +219,18 @@ class _ScannerScreenState extends State<ScannerScreen> {
         fotoPlaca: _fotoPlaca,
         fotoNumero: _fotoNumero,
       );
-      await RecuperacionGuardia.limpiar(); // registro completado
+      await RecuperacionGuardia.limpiar();
+      if (!mounted) return;
       setState(() {
         _resultado = _direccion == 'entrada' ? 'Entrada registrada' : 'Salida registrada';
         _paso = _Paso.done;
       });
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      setState(() => _error = 'No se pudo registrar el acceso');
+      if (mounted) setState(() => _error = 'No se pudo registrar el acceso');
     } finally {
-      setState(() => _procesando = false);
+      if (mounted) setState(() => _procesando = false);
     }
   }
 

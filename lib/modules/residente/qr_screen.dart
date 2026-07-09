@@ -35,15 +35,16 @@ class _QrScreenState extends State<QrScreen> {
       final res = await ResidenteApi.misVisitas();
       if (mounted) setState(() => _visitas = res);
     } on ApiException catch (e) {
+      if (!mounted) return;
       if (e.code == 'cuenta_bloqueada') {
         setState(() => _bloqueada = true);
       } else {
         setState(() => _error = e.message);
       }
     } catch (e) {
-      setState(() => _error = 'No se pudo conectar');
+      if (mounted) setState(() => _error = 'No se pudo conectar');
     } finally {
-      setState(() => _cargando = false);
+      if (mounted) setState(() => _cargando = false);
     }
   }
 

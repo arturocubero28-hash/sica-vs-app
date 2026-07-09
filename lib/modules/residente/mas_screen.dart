@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../api/client.dart';
 import '../../api/bloqueo_biometrico.dart';
+import '../../api/notificaciones.dart';
 import '../../theme/app_theme.dart';
 import '../../screens/login_screen.dart';
 import 'mi_edificio_screen.dart';
@@ -67,6 +68,7 @@ class _MasScreenState extends State<MasScreen> {
   }
 
   Future<void> _logout() async {
+    await NotificacionesService.desregistrar(); // borra token FCM del servidor
     await AuthStorage.limpiar();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(

@@ -1,18 +1,26 @@
 // ── Configuración de la API ───────────────────────────────────────────────────
-// Cambiá baseUrl a la URL real cuando vayas a producción.
+//
+// La URL base se selecciona automáticamente según el sabor de compilación:
+//   flutter run --dart-define=ENV=prod
+//   flutter build apk --dart-define=ENV=prod
+//
+// En desarrollo (default): apunta al emulador Android (10.0.2.2 → localhost PC)
+// En producción: apunta al servidor en DigitalOcean (HTTPS obligatorio)
 class ApiConfig {
-  // Desarrollo: URL de ngrok
-  // Emulador Android: 10.0.2.2 apunta al localhost de tu PC
-  static const String baseUrl = 'http://10.0.2.2:5000/api/v1';
+  static const String _env = String.fromEnvironment('ENV', defaultValue: 'dev');
+  static const bool _esProd = _env == 'prod';
 
-  // Producción (descomentar cuando tengas el servidor real):
-  // static const String baseUrl = 'https://tudominio.com/api/v1';
+  static const String baseUrl = _esProd
+      ? 'https://sicavs.villasdelsol.hn/api/v1'   // ← URL real al desplegar
+      : 'http://10.0.2.2:5000/api/v1';              // ← emulador Android
 
-  static const Duration timeout = Duration(seconds: 30);  // más tiempo para fotos en base64
+  // Timeout generoso para fotos (upload multipart en conexión móvil)
+  static const Duration timeout = Duration(seconds: 30);
 
-  // Headers que ngrok requiere para no mostrar la pantalla de aviso
   static Map<String, String> get headers => {
     'Content-Type': 'application/json',
+    // ngrok requiere este header para no mostrar su pantalla de aviso
+    // (no tiene efecto en producción)
     'ngrok-skip-browser-warning': 'true',
   };
 }

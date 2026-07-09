@@ -17,6 +17,9 @@ dependencies:
   # QR
   qr_flutter: ^4.1.0
   mobile_scanner: ^5.1.0
+  # Almacenamiento seguro del token JWT
+  flutter_secure_storage: ^9.2.2
+
   # Imágenes y archivos
   image_picker: ^1.0.7
   cached_network_image: ^3.3.1

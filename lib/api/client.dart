@@ -2,25 +2,33 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'config.dart';
 import 'models.dart';
 
 // ── Gestión del token ─────────────────────────────────────────────────────────
+/// El JWT de sesión se guarda en el Keystore/Keychain del sistema operativo
+/// (FlutterSecureStorage) para que otras apps no puedan leerlo.
+///
+/// Los datos no sensibles (rol, info básica del usuario) siguen en
+/// SharedPreferences porque no contienen credenciales.
 class AuthStorage {
+  static const _secure = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
   static const _tokenKey = 'sica_token';
   static const _rolKey   = 'sica_rol';
   static const _userKey  = 'sica_user';
 
   static Future<void> guardar(String token, String rol, Map user) async {
+    await _secure.write(key: _tokenKey, value: token);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
     await prefs.setString(_rolKey, rol);
     await prefs.setString(_userKey, jsonEncode(user));
   }
 
   static Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_tokenKey);
+    return await _secure.read(key: _tokenKey);
   }
 
   static Future<String?> getRol() async {
@@ -36,8 +44,8 @@ class AuthStorage {
   }
 
   static Future<void> limpiar() async {
+    await _secure.delete(key: _tokenKey);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
     await prefs.remove(_rolKey);
     await prefs.remove(_userKey);
   }
@@ -133,6 +141,10 @@ class ApiClient {
     final body = jsonDecode(utf8.decode(res.bodyBytes));
     if (res.statusCode >= 200 && res.statusCode < 300) {
       return body['data'] ?? body;
+    }
+    // 401: token inválido o expirado → limpiar sesión local
+    if (res.statusCode == 401) {
+      AuthStorage.limpiar(); // async fire-and-forget — no bloquea
     }
     final err = body['error'];
     throw ApiException(
