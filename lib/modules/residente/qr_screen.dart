@@ -3,11 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'dart:typed_data';
-import 'package:http/http.dart' as http;
 import '../../api/client.dart';
-import '../../api/config.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/tarjeta_qr.dart';
 
 final _fmtVigencia = DateFormat('dd/MM/yyyy');
 final _fmtHora = DateFormat('dd/MM HH:mm');
@@ -286,7 +284,7 @@ class _MiniChip extends StatelessWidget {
   );
 }
 
-// ─── Panel de la tarjeta QR (imagen del backend con logo) ─────────────────────
+// ─── Panel de la tarjeta QR (renderizada en el dispositivo, sin pedirla al servidor) ───
 class _TarjetaQrPanel extends StatefulWidget {
   final dynamic visita;
   final VoidCallback onCancelada;
@@ -297,48 +295,41 @@ class _TarjetaQrPanel extends StatefulWidget {
 }
 
 class _TarjetaQrPanelState extends State<_TarjetaQrPanel> {
-  Uint8List? _imagen;
-  bool _cargando = true;
+  final GlobalKey _tarjetaKey = GlobalKey();
   bool _cancelando = false;
+  bool _compartiendo = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _cargarImagen();
-  }
-
-  Future<void> _cargarImagen() async {
-    try {
-      final token = await AuthStorage.getToken();
-      final uuid = widget.visita['uuid_publico'] ?? widget.visita['id'].toString();
-      final res = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/visitas/$uuid/qr-imagen'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-      ).timeout(ApiConfig.timeout);
-      if (res.statusCode == 200) {
-        setState(() => _imagen = res.bodyBytes);
-      }
-    } catch (_) {
-      // Si falla se muestra un placeholder
-    } finally {
-      if (mounted) setState(() => _cargando = false);
-    }
+  bool get _tieneToken {
+    final t = widget.visita['qr_token'];
+    return t != null && t.toString().isNotEmpty;
   }
 
   Future<void> _compartir() async {
-    if (_imagen == null) return;
-    final dir = await getTemporaryDirectory();
-    final nombre = (widget.visita['nombre_visitante'] ?? 'visita')
-        .toString().replaceAll(' ', '_');
-    final file = File('${dir.path}/qr_$nombre.png');
-    await file.writeAsBytes(_imagen!);
-    await Share.shareXFiles(
-      [XFile(file.path)],
-      text: 'Tu código QR de acceso a Residencial Villas del Sol',
-    );
+    if (_compartiendo) return;
+    setState(() => _compartiendo = true);
+    try {
+      // Captura la tarjeta ya renderizada — sin llamada al backend.
+      // Sale a 1200×1760 px, misma resolución que generaba el servidor.
+      final bytes = await capturarTarjetaComoPng(_tarjetaKey);
+      if (bytes == null) throw Exception('No se pudo generar la imagen');
+
+      final dir = await getTemporaryDirectory();
+      final nombre = (widget.visita['nombre_visitante'] ?? 'visita')
+          .toString().replaceAll(' ', '_');
+      final file = File('${dir.path}/qr_$nombre.png');
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Tu código QR de acceso a Residencial Villas del Sol',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('No se pudo compartir el QR'),
+          backgroundColor: AppColors.rojo));
+    } finally {
+      if (mounted) setState(() => _compartiendo = false);
+    }
   }
 
   Future<void> _cancelar() async {
@@ -396,31 +387,44 @@ class _TarjetaQrPanelState extends State<_TarjetaQrPanel> {
             fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.azul)),
         const SizedBox(height: 16),
 
-        if (_cargando)
-          const SizedBox(height: 280,
-              child: Center(child: CircularProgressIndicator()))
-        else if (_imagen != null)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Image.memory(_imagen!, width: 280, fit: BoxFit.contain),
-          )
-        else
+        if (!_tieneToken)
           Container(
             height: 200, width: 280,
             decoration: BoxDecoration(
               color: AppColors.grisCl,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Center(child: Text('No se pudo cargar el QR',
+            child: const Center(child: Text('No se pudo generar el QR',
                 style: TextStyle(color: AppColors.gris))),
+          )
+        else
+          // La tarjeta se pinta a tamaño real (600×880) y se escala para
+          // que quepa en pantalla. RepaintBoundary la captura a resolución
+          // completa cuando el usuario comparte.
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              width: 280,
+              height: 280 * (880 / 600),
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: TarjetaQR(
+                  visita: Map<String, dynamic>.from(widget.visita as Map),
+                  captureKey: _tarjetaKey,
+                ),
+              ),
+            ),
           ),
         const SizedBox(height: 20),
 
         Row(children: [
           Expanded(child: ElevatedButton.icon(
-            onPressed: _imagen != null ? _compartir : null,
-            icon: const Icon(Icons.share, size: 18),
-            label: const Text('Compartir'),
+            onPressed: (_tieneToken && !_compartiendo) ? _compartir : null,
+            icon: _compartiendo
+                ? const SizedBox(width: 16, height: 16,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Icon(Icons.share, size: 18),
+            label: Text(_compartiendo ? 'Preparando…' : 'Compartir'),
           )),
           const SizedBox(width: 10),
           if (activa)
