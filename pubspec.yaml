@@ -20,6 +20,7 @@ dependencies:
   # Imágenes y archivos
   image_picker: ^1.0.7
   cached_network_image: ^3.3.1
+  flutter_image_compress: ^2.3.0
   # UI
   flutter_svg: ^2.0.10+1
   shimmer: ^3.0.0
