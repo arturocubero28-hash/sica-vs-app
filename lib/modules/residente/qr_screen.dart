@@ -22,6 +22,7 @@ class _QrScreenState extends State<QrScreen> {
   bool _cargando = true;
   String? _error;
   bool _bloqueada = false;
+  bool _qrRecurrenteHabilitado = false;
 
   @override
   void initState() {
@@ -32,8 +33,18 @@ class _QrScreenState extends State<QrScreen> {
   Future<void> _cargar() async {
     setState(() { _cargando = true; _error = null; });
     try {
-      final res = await ResidenteApi.misVisitas();
-      if (mounted) setState(() => _visitas = res);
+      // Cargar visitas y datos de cuenta en paralelo
+      final results = await Future.wait([
+        ResidenteApi.misVisitas(),
+        ApiClient.get('/visitas/mi-cuenta'),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _visitas = results[0] as List<dynamic>;
+        final cuenta = (results[1] as Map<String, dynamic>?)?['cuenta'];
+        _qrRecurrenteHabilitado =
+            cuenta?['qr_recurrente_habilitado'] == true;
+      });
     } on ApiException catch (e) {
       if (!mounted) return;
       if (e.code == 'cuenta_bloqueada') {
@@ -61,7 +72,9 @@ class _QrScreenState extends State<QrScreen> {
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => _ModalCrearQr(onCreado: (visita) {
+      builder: (_) => _ModalCrearQr(
+        qrRecurrenteHabilitado: _qrRecurrenteHabilitado,
+        onCreado: (visita) {
         _cargar();
         Future.delayed(const Duration(milliseconds: 300), () {
           if (mounted) _abrirTarjeta(visita);
@@ -453,7 +466,8 @@ class _TarjetaQrPanelState extends State<_TarjetaQrPanel> {
 // ─── Modal de creación con TODOS los campos de la web ─────────────────────────
 class _ModalCrearQr extends StatefulWidget {
   final void Function(dynamic visita) onCreado;
-  const _ModalCrearQr({required this.onCreado});
+  final bool qrRecurrenteHabilitado;
+  const _ModalCrearQr({required this.onCreado, required this.qrRecurrenteHabilitado});
 
   @override
   State<_ModalCrearQr> createState() => _ModalCrearQrState();
@@ -548,29 +562,64 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
             ])
               Expanded(child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => setState(() => _tipo = t.$1),
-                  child: Container(
+                child: Builder(builder: (context) {
+                  final bloqueado = t.$1 == 'recurrente'
+                      && !widget.qrRecurrenteHabilitado;
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      if (bloqueado) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text(
+                            'Los QR recurrentes no están habilitados para tu cuenta. '
+                            'Solicitá el permiso a la administración.',
+                          ),
+                          backgroundColor: AppColors.azul,
+                          duration: Duration(seconds: 4),
+                        ));
+                        return;
+                      }
+                      setState(() => _tipo = t.$1);
+                    },
+                    child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: _tipo == t.$1 ? t.$4 : AppColors.grisCl,
+                      color: bloqueado
+                          ? AppColors.grisCl.withOpacity(0.5)
+                          : (_tipo == t.$1 ? t.$4 : AppColors.grisCl),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: _tipo == t.$1 ? t.$4 : AppColors.borde,
+                        color: _tipo == t.$1 && !bloqueado ? t.$4 : AppColors.borde,
                       ),
                     ),
                     child: Column(children: [
-                      Icon(t.$3, size: 22,
-                          color: _tipo == t.$1 ? Colors.white : AppColors.gris),
+                      Stack(alignment: Alignment.center, children: [
+                        Icon(t.$3, size: 22,
+                            color: bloqueado
+                                ? AppColors.gris.withOpacity(0.4)
+                                : (_tipo == t.$1 ? Colors.white : AppColors.gris)),
+                        if (bloqueado)
+                          Positioned(
+                            right: 0, bottom: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(1),
+                              decoration: const BoxDecoration(
+                                color: Colors.white, shape: BoxShape.circle),
+                              child: const Icon(Icons.lock, size: 10, color: AppColors.gris),
+                            ),
+                          ),
+                      ]),
                       const SizedBox(height: 4),
                       Text(t.$2, style: TextStyle(
                         fontSize: 11.5, fontWeight: FontWeight.w700,
-                        color: _tipo == t.$1 ? Colors.white : AppColors.gris,
+                        color: bloqueado
+                            ? AppColors.gris.withOpacity(0.4)
+                            : (_tipo == t.$1 ? Colors.white : AppColors.gris),
                       )),
                     ]),
                   ),
-                ),
+                  );  // cierre InkWell
+                }),  // cierre Builder
               )),
           ]),
           const SizedBox(height: 8),
@@ -579,16 +628,25 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
             width: double.infinity,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.azul.withOpacity(0.06),
+              color: (_tipo == 'recurrente' && !widget.qrRecurrenteHabilitado)
+                  ? AppColors.rojo.withOpacity(0.07)
+                  : AppColors.azul.withOpacity(0.06),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
               _tipo == 'unica'
                   ? 'Un solo uso: el QR se invalida al entrar.'
                   : _tipo == 'recurrente'
-                      ? 'Múltiples entradas hasta la fecha de vencimiento (ej. empleada, familiar).'
+                      ? (widget.qrRecurrenteHabilitado
+                          ? 'Múltiples entradas hasta la fecha de vencimiento (ej. empleada, familiar).'
+                          : '🔒 Tu cuenta no tiene habilitado el QR recurrente. Solicitá el permiso a la administración de Villas del Sol.')
                       : 'Para repartidores: acceso puntual con registro de la empresa.',
-              style: const TextStyle(fontSize: 12, color: AppColors.azul2),
+              style: TextStyle(
+                fontSize: 12,
+                color: (_tipo == 'recurrente' && !widget.qrRecurrenteHabilitado)
+                    ? AppColors.rojo
+                    : AppColors.azul2,
+              ),
             ),
           ),
           const SizedBox(height: 14),
