@@ -237,3 +237,24 @@ Future<Uint8List?> capturarTarjetaComoPng(GlobalKey key, {double escala = 2.0}) 
     return null;
   }
 }
+
+/// Widget reutilizable de QR simple para la tarjeta virtual.
+/// No incluye el diseño completo de la tarjeta de visitas.
+class QrImageViewWidget extends StatelessWidget {
+  final String data;
+  final double size;
+  const QrImageViewWidget({super.key, required this.data, this.size = 240});
+
+  @override
+  Widget build(BuildContext context) => QrImageView(
+    data: data,
+    version: QrVersions.auto,
+    size: size,
+    padding: EdgeInsets.zero,
+    errorCorrectionLevel: QrErrorCorrectLevel.H,
+    backgroundColor: Colors.white,
+    eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: AppColors.azul),
+    dataModuleStyle: const QrDataModuleStyle(
+        dataModuleShape: QrDataModuleShape.circle, color: AppColors.azul),
+  );
+}
