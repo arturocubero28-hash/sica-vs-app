@@ -118,19 +118,19 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
       final data = res as Map<String, dynamic>;
 
       if (data['wallet_url'] != null) {
-        // Google Wallet configurado → abrir el link directamente
+        // Google Wallet configurado → abrir directamente
         final url = Uri.parse(data['wallet_url'].toString());
         if (await canLaunchUrl(url)) {
           await launchUrl(url, mode: LaunchMode.externalApplication);
         }
       } else {
-        // Modo desarrollo → mostrar el código para probar
+        // Modo desarrollo — función disponible pero pendiente de configuración
         if (!mounted) return;
         showDialog(context: context, builder: (_) => AlertDialog(
-          title: const Text('Google Wallet (modo desarrollo)'),
-          content: Text('Código del día: ${data['codigo_hoy']}\n\n'
-              'Cuando se configure la cuenta de Google Cloud, '
-              'este botón abrirá Google Wallet directamente.'),
+          title: const Text('Google Wallet'),
+          content: const Text(
+            'La integración con Google Wallet estará disponible '
+            'una vez que el sistema esté desplegado en producción.'),
           actions: [TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Entendido'),
@@ -140,7 +140,7 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('No se pudo generar el pase para la Wallet'),
+        content: Text('No se pudo conectar con Google Wallet'),
         backgroundColor: AppColors.rojo,
       ));
     } finally {
@@ -191,8 +191,7 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
             SizedBox(height: 8),
             Text(
               'Funciona igual que tu tarjeta RFID física: acercás el teléfono al lector '
-              'y la barrera se abre sola, sin pasar por el guardia. '
-              'El código cambia automáticamente cada noche para mayor seguridad.',
+              'y la barrera se abre sola, sin pasar por el guardia.',
               style: TextStyle(fontSize: 13, color: AppColors.gris, height: 1.45),
             ),
           ]),
@@ -248,19 +247,6 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
           // ── Activa: mostrar QR ──
           _QrTarjetaVirtual(codigo: codigo ?? ''),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.verde.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.schedule, size: 15, color: AppColors.verde),
-              const SizedBox(width: 6),
-              Text('Código válido hasta hoy a medianoche',
-                  style: TextStyle(fontSize: 12, color: AppColors.verde.withOpacity(0.85))),
-            ]),
-          ),
           const SizedBox(height: 24),
 
           // ── Botón Google Wallet ──
