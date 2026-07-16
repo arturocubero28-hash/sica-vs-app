@@ -6,7 +6,6 @@ import '../../api/notificaciones.dart';
 import '../../theme/app_theme.dart';
 import '../../screens/login_screen.dart';
 import 'mi_edificio_screen.dart';
-import 'tarjeta_virtual_screen.dart';
 
 final _fmtL = NumberFormat.currency(locale: 'es_HN', symbol: 'L ');
 
@@ -143,15 +142,6 @@ class _MasScreenState extends State<MasScreen> {
             onTap: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const MiEdificioScreen())),
           ),
-
-        _OpcionTile(
-          icono: Icons.contactless,
-          color: AppColors.naranja,
-          titulo: 'Mi tarjeta de acceso',
-          subtitulo: 'QR permanente para entrar sin el guardia · Agrega a Wallet',
-          onTap: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => const TarjetaVirtualScreen())),
-        ),
 
         // Toggle de bloqueo con huella (solo si el dispositivo lo soporta)
         if (_biometriaDisponible)

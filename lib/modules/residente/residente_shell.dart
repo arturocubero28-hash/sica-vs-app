@@ -7,6 +7,7 @@ import 'qr_screen.dart';
 import 'cuotas_screen.dart';
 import 'home_screen.dart';
 import 'mas_screen.dart';
+import 'tarjeta_virtual_screen.dart';
 
 class ResidenteShell extends StatefulWidget {
   const ResidenteShell({super.key});
@@ -47,6 +48,7 @@ class _ResidenteShellState extends State<ResidenteShell> {
       const HomeScreen(),
       const QrScreen(),
       const CuotasScreen(),
+      const TarjetaVirtualScreen(),
       const MasScreen(),
     ];
 
@@ -70,12 +72,37 @@ class _ResidenteShellState extends State<ResidenteShell> {
           ),
         ],
       ),
-      body: pantallas[_tab],
+      body: Stack(
+        children: [
+          // Fondo con marca de agua sutil del logo
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Opacity(
+                    opacity: 0.04,
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      width: 280,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  ),
+                  const SizedBox(height: 80), // espacio sobre la barra de navegación
+                ],
+              ),
+            ),
+          ),
+          // Contenido de la pantalla activa
+          pantallas[_tab],
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
         backgroundColor: Colors.white,
-        indicatorColor: AppColors.azul.withOpacity(0.12),
+        indicatorColor: AppColors.naranja.withOpacity(0.15),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
@@ -91,6 +118,11 @@ class _ResidenteShellState extends State<ResidenteShell> {
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long, color: AppColors.azul),
             label: 'Cuotas',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.contactless_outlined),
+            selectedIcon: Icon(Icons.contactless, color: AppColors.naranja),
+            label: 'Mi Tarjeta',
           ),
           NavigationDestination(
             icon: Icon(Icons.menu_outlined),
