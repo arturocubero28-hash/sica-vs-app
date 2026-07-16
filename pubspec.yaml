@@ -20,8 +20,8 @@ dependencies:
   # Almacenamiento seguro del token JWT
   flutter_secure_storage: ^9.2.2
 
-  # Bloqueo de captura de pantalla (FLAG_SECURE) para la tarjeta de acceso
-  flutter_windowmanager: ^0.2.0
+  # Bloqueo de captura de pantalla para la tarjeta de acceso
+  screen_protector: ^1.3.3
 
   # Abrir URLs externas (Google Wallet, WhatsApp, etc.)
   url_launcher: ^6.3.1
