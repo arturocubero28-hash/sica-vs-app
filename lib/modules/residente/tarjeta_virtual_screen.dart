@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 import '../../api/client.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/tarjeta_qr.dart';
@@ -27,7 +28,18 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
   @override
   void initState() {
     super.initState();
+    // Bloquear capturas de pantalla y grabación mientras se muestra el QR.
+    // FLAG_SECURE es un flag de Android que impide que la pantalla aparezca
+    // en capturas, grabaciones, y en el reciente de apps.
+    FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
     _cargar();
+  }
+
+  @override
+  void dispose() {
+    // Restaurar cuando el residente sale de la pantalla
+    FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
+    super.dispose();
   }
 
   Future<void> _cargar() async {
