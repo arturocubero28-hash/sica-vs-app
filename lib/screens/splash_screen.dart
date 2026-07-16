@@ -32,28 +32,46 @@ class _SplashScreenState extends State<SplashScreen> {
     final token = await AuthStorage.getToken();
     final rol   = await AuthStorage.getRol();
 
-    if (token != null && rol != null) {
-      // Intentar recuperar comprobante pendiente (Android mató el proceso
-      // mientras el residente tomaba la foto del comprobante)
-      await _recuperarComprobanteSiHubo();
-
-      // Si el bloqueo biométrico está activo, pedir huella antes de entrar.
-      final bloqueoActivo = await BloqueoBiometrico.estaActivo();
-      if (bloqueoActivo) {
-        final ok = await BloqueoBiometrico.autenticar(
-          motivo: 'Desbloqueá SICA-VS con tu huella',
-        );
-        if (!ok) {
-          if (mounted) setState(() => _bloqueado = true);
-          return;
-        }
-      }
-      if (!mounted) return;
-      RoleRouter.navegar(context, rol);
-    } else {
+    if (token == null || rol == null) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()));
+          MaterialPageRoute(builder: (_) => const LoginScreen()));
+      return;
     }
+
+    // Verificar que el token sigue siendo válido en el servidor.
+    // Si el JWT expiró, el servidor devuelve 401 → _parse() limpia el token
+    // → redirigir al login en vez de mostrar la app con errores de "token inválido".
+    try {
+      await ApiClient.get('/auth/me');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      // El token expiró o fue revocado — ir al login
+      if (e.code == 'no_autorizado' || e.code == 'ERROR') {
+        Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const LoginScreen()));
+        return;
+      }
+    } catch (_) {
+      // Sin conexión — dejar entrar igual (funciona offline con datos en caché)
+      // El primer request que haga fallará con error de red, no con 401
+    }
+
+    // Intentar recuperar comprobante pendiente
+    await _recuperarComprobanteSiHubo();
+
+    // Si el bloqueo biométrico está activo, pedir huella antes de entrar.
+    final bloqueoActivo = await BloqueoBiometrico.estaActivo();
+    if (bloqueoActivo) {
+      final ok = await BloqueoBiometrico.autenticar(
+        motivo: 'Desbloqueá SICA-VS con tu huella',
+      );
+      if (!ok) {
+        if (mounted) setState(() => _bloqueado = true);
+        return;
+      }
+    }
+    if (!mounted) return;
+    RoleRouter.navegar(context, rol);
   }
 
   /// Si Android mató la app mientras el residente tomaba la foto del
