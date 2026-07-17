@@ -75,20 +75,25 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('Mi tarjeta de acceso'),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _cargarTodo)],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(children: [
-          _selectorMetodo(),
-          const SizedBox(height: 16),
-          _metodo == 0 ? _vistaQr() : _vistaBle(),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(children: [
+        Row(children: [
+          const Expanded(
+            child: Text('Mi tarjeta de acceso',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.azul)),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: AppColors.azul),
+            onPressed: _cargarTodo,
+            tooltip: 'Actualizar',
+          ),
         ]),
-      ),
+        const SizedBox(height: 4),
+        _selectorMetodo(),
+        const SizedBox(height: 16),
+        _metodo == 0 ? _vistaQr() : _vistaBle(),
+      ]),
     );
   }
 

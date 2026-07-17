@@ -101,10 +101,18 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           // Encabezado
-          const Text('Comunidad Villas del Sol',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.azul)),
-          const Text('Anuncios de la administración',
-              style: TextStyle(fontSize: 13, color: AppColors.gris)),
+          Row(children: [
+            const Icon(Icons.campaign_rounded, color: AppColors.naranja, size: 20),
+            const SizedBox(width: 8),
+            const Text('Comunicados',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.azul)),
+          ]),
+          const SizedBox(height: 2),
+          const Padding(
+            padding: EdgeInsets.only(left: 28),
+            child: Text('Anuncios de la administración',
+                style: TextStyle(fontSize: 12.5, color: AppColors.gris)),
+          ),
           const SizedBox(height: 16),
 
           if (_comunicados.isEmpty)
@@ -187,7 +195,7 @@ class _ComunicadoCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         onTap: onTap,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // Imagen del comunicado (si tiene), a lo ancho de la tarjeta
