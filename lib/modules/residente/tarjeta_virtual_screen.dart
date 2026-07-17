@@ -33,13 +33,13 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
   @override
   void initState() {
     super.initState();
-    ScreenProtector.preventScreenshot();
+    ScreenProtector.preventScreenshotOn();
     _cargarTodo();
   }
 
   @override
   void dispose() {
-    ScreenProtector.removePreventScreenshot();
+    ScreenProtector.preventScreenshotOff();
     super.dispose();
   }
 
