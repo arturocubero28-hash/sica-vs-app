@@ -114,12 +114,18 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 88, height: 88,
+                  width: 96, height: 96,
                   decoration: BoxDecoration(
-                    color: AppColors.naranja,
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
                   ),
-                  child: const Icon(Icons.shield, color: Colors.white, size: 48),
+                  padding: const EdgeInsets.all(12),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) =>
+                        const Icon(Icons.shield, color: AppColors.naranja, size: 48),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 const Text('SICA-VS',

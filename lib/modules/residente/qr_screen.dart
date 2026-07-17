@@ -569,14 +569,23 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
                     borderRadius: BorderRadius.circular(12),
                     onTap: () {
                       if (bloqueado) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text(
-                            'Los QR recurrentes no están habilitados para tu cuenta. '
-                            'Solicitá el permiso a la administración.',
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            icon: const Icon(Icons.lock_outline, color: AppColors.azul, size: 32),
+                            title: const Text('QR recurrente no habilitado'),
+                            content: const Text(
+                              'Los QR recurrentes no están habilitados para tu cuenta. '
+                              'Solicitá el permiso a la administración de Villas del Sol.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Entendido'),
+                              ),
+                            ],
                           ),
-                          backgroundColor: AppColors.azul,
-                          duration: Duration(seconds: 4),
-                        ));
+                        );
                         return;
                       }
                       setState(() => _tipo = t.$1);

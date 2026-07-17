@@ -135,14 +135,20 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Escudo
+            // Logo de Villas del Sol
             Container(
-              width: 100, height: 100,
+              width: 108, height: 108,
               decoration: BoxDecoration(
-                color: AppColors.naranja,
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(28),
               ),
-              child: const Icon(Icons.shield, color: Colors.white, size: 60),
+              padding: const EdgeInsets.all(14),
+              child: Image.asset(
+                'assets/images/logo.png',
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.shield, color: AppColors.naranja, size: 60),
+              ),
             ),
             const SizedBox(height: 24),
             const Text('SICA-VS',

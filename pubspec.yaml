@@ -50,8 +50,21 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
   assets:
     - assets/images/
+
+# Configuración del ícono de la app (se genera con:
+#   flutter pub run flutter_launcher_icons
+# Usa el mismo logo.png del login y splash, con fondo blanco para que
+# el logo de Villas del Sol se distinga bien sobre cualquier launcher.
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/logo.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/logo.png"
+  min_sdk_android: 21
