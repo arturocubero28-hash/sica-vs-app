@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:screen_protector/screen_protector.dart';
 import '../../api/client.dart';
 import '../../api/ble_service.dart';
+import '../../api/screen_secure.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/tarjeta_qr.dart';
 
@@ -33,13 +33,13 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
   @override
   void initState() {
     super.initState();
-    ScreenProtector.preventScreenshotOn();
+    ScreenSecure.activar();
     _cargarTodo();
   }
 
   @override
   void dispose() {
-    ScreenProtector.preventScreenshotOff();
+    ScreenSecure.desactivar();
     super.dispose();
   }
 

@@ -20,9 +20,6 @@ dependencies:
   # Almacenamiento seguro del token JWT
   flutter_secure_storage: ^9.2.2
 
-  # Bloqueo de captura de pantalla para la tarjeta de acceso
-  screen_protector: ^1.5.3
-
   # Acceso por Bluetooth de baja energía (BLE)
   flutter_blue_plus: ^1.32.12
   device_info_plus: ^10.1.2
