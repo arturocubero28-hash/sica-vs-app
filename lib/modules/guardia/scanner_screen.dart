@@ -401,7 +401,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
         Container(color: Colors.black54,
             child: const Center(child: CircularProgressIndicator(color: AppColors.naranja))),
       if (_error != null)
-        Positioned(top: 20, left: 16, right: 16,
+        Positioned(top: 84, left: 16, right: 16,
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: AppColors.rojo, borderRadius: BorderRadius.circular(12)),

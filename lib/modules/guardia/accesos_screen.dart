@@ -100,7 +100,7 @@ class _AccesoCard extends StatelessWidget {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(nombre, style: const TextStyle(
                 fontWeight: FontWeight.w700, color: AppColors.azul, fontSize: 14)),
-            Row(children: [
+            Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
               if (unidad.isNotEmpty) ...[
                 Text(unidad, style: const TextStyle(fontSize: 12, color: AppColors.gris)),
                 const Text(' · ', style: TextStyle(color: AppColors.gris)),
@@ -115,7 +115,8 @@ class _AccesoCard extends StatelessWidget {
             ]),
             if (guardia != null && guardia.isNotEmpty)
               Text('Guardia: $guardia',
-                  style: const TextStyle(fontSize: 11, color: AppColors.gris)),
+                  style: const TextStyle(fontSize: 11, color: AppColors.gris),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
           ])),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             if (hora != null)
