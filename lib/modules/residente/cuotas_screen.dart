@@ -247,6 +247,44 @@ class _CuotaCard extends StatelessWidget {
             ),
           ],
 
+          // PAY-11: si hay pagos parciales aprobados, mostrar con claridad
+          // cuánto se ha pagado y cuánto falta — en vez de que la cuota
+          // simplemente siga apareciendo como pendiente sin explicación.
+          if ((cuota['monto_pagado'] as num? ?? 0) > 0 && estado != 'pagada') ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.amber.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.amber.withOpacity(0.3)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.savings_outlined, size: 16, color: AppColors.amber),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 12.5, color: AppColors.gris),
+                      children: [
+                        const TextSpan(text: 'Ya pagaste '),
+                        TextSpan(
+                          text: _fmt.format((cuota['monto_pagado'] as num).toDouble()),
+                          style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.azul),
+                        ),
+                        TextSpan(text: ' de ${_fmt.format(monto)}. Saldo: '),
+                        TextSpan(
+                          text: _fmt.format((cuota['saldo_pendiente'] as num? ?? 0).toDouble()),
+                          style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.rojo),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ],
+
           if (!enRevision) ...[
             const SizedBox(height: 12),
             SizedBox(width: double.infinity,
