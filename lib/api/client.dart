@@ -49,6 +49,37 @@ class AuthStorage {
     await prefs.remove(_rolKey);
     await prefs.remove(_userKey);
   }
+
+  /// AUTH-02 (Auditoría Día 35): punto ÚNICO de cierre de sesión.
+  ///
+  /// Antes cada pantalla implementaba su propio logout llamando
+  /// directamente a AuthStorage.limpiar() — eso solo borra el token del
+  /// teléfono, pero el JWT sigue siendo VÁLIDO en el servidor hasta que
+  /// expira solo. Si alguien capturó ese token antes (red comprometida,
+  /// dispositivo perdido y recuperado, etc.), seguía pudiendo usarlo
+  /// después de que el dueño "cerrara sesión".
+  ///
+  /// Ahora: se llama a POST /auth/logout (que ya existía en el backend,
+  /// simplemente nunca se usaba) para revocar el token en el servidor
+  /// ANTES de borrar el almacenamiento local. Si no hay conexión, se
+  /// limpia igual el estado local — el usuario no debe quedar atrapado
+  /// sin poder cerrar sesión por falta de red, pero se intenta la
+  /// revocación primero siempre que se pueda.
+  ///
+  /// El desregistro de FCM sigue siendo responsabilidad de quien llama
+  /// (residente_shell, guardia_shell, etc.) porque NotificacionesService
+  /// ya importa este archivo — importarlo acá crearía una dependencia
+  /// circular. El orden correcto en cada pantalla es:
+  ///   await NotificacionesService.desregistrar();
+  ///   await AuthStorage.cerrarSesion();
+  static Future<void> cerrarSesion() async {
+    try {
+      await ApiClient.post('/auth/logout', {});
+    } catch (_) {
+      // Sin conexión o token ya inválido — no bloquear el logout local
+    }
+    await limpiar();
+  }
 }
 
 // ── Cliente HTTP base ─────────────────────────────────────────────────────────

@@ -95,7 +95,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _cerrarSesion() async {
-    await AuthStorage.limpiar();
+    await AuthStorage.cerrarSesion(); // AUTH-02: revoca el JWT en el servidor, no solo local
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const LoginScreen()));

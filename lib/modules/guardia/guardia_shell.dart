@@ -69,7 +69,7 @@ class _GuardiaShellState extends State<GuardiaShell> {
 
   Future<void> _logout() async {
     await NotificacionesService.desregistrar();
-    await AuthStorage.limpiar();
+    await AuthStorage.cerrarSesion(); // AUTH-02: revoca el JWT en el servidor, no solo local
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);

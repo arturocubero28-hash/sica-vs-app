@@ -69,7 +69,7 @@ class _MasScreenState extends State<MasScreen> {
 
   Future<void> _logout() async {
     await NotificacionesService.desregistrar(); // borra token FCM del servidor
-    await AuthStorage.limpiar();
+    await AuthStorage.cerrarSesion(); // AUTH-02: revoca el JWT en el servidor, no solo local
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);
