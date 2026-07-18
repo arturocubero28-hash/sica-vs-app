@@ -167,8 +167,16 @@ class _CuotasScreenState extends State<CuotasScreen> {
           // Cuotas pendientes
           if (cuotas.isNotEmpty) ...[
             _SeccionHeader(titulo: 'Cuotas pendientes', icono: Icons.receipt_long_outlined),
-            const SizedBox(height: 8),
-            ...cuotas.map((c) => _CuotaCard(cuota: c, onPagada: _cargar)),
+            const SizedBox(height: 4),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text('Pagá en orden: primero la más antigua pendiente.',
+                  style: TextStyle(fontSize: 12, color: AppColors.gris)),
+            ),
+            ...cuotas.map((c) => _CuotaCard(
+              cuota: c, onPagada: _cargar,
+              esLaMasAntigua: c['periodo'] == _periodoMasAntiguo(cuotas),
+            )),
           ],
 
           if (cuotas.isEmpty && arreglo == null)
@@ -179,12 +187,27 @@ class _CuotasScreenState extends State<CuotasScreen> {
       ),
     );
   }
+
+  /// Orden cronológico obligatorio (Día 36): encuentra el período (string
+  /// ISO de fecha) de la cuota pendiente más antigua entre las que se
+  /// muestran, para saber cuál es la única habilitada para pagar ahora.
+  String? _periodoMasAntiguo(List<dynamic> cuotas) {
+    if (cuotas.isEmpty) return null;
+    String? minimo;
+    for (final c in cuotas) {
+      final p = c['periodo']?.toString();
+      if (p == null) continue;
+      if (minimo == null || p.compareTo(minimo) < 0) minimo = p;
+    }
+    return minimo;
+  }
 }
 
 class _CuotaCard extends StatelessWidget {
   final dynamic cuota;
   final VoidCallback onPagada;
-  const _CuotaCard({required this.cuota, required this.onPagada});
+  final bool esLaMasAntigua;
+  const _CuotaCard({required this.cuota, required this.onPagada, this.esLaMasAntigua = true});
 
   @override
   Widget build(BuildContext context) {
@@ -248,13 +271,30 @@ class _CuotaCard extends StatelessWidget {
           ],
 
 
+          if (!enRevision && !esLaMasAntigua) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.azul.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(children: [
+                Icon(Icons.info_outline, size: 16, color: AppColors.azul),
+                SizedBox(width: 6),
+                Expanded(child: Text('Tenés una cuota más antigua sin pagar. Pagá esa primero.',
+                    style: TextStyle(fontSize: 12, color: AppColors.azul))),
+              ]),
+            ),
+          ],
+
           if (!enRevision) ...[
             const SizedBox(height: 12),
             SizedBox(width: double.infinity,
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.upload_outlined, size: 18),
                 label: const Text('Subir comprobante'),
-                onPressed: () => _abrirSubidaComprobante(
+                onPressed: !esLaMasAntigua ? null : () => _abrirSubidaComprobante(
                     context, cuota['uuid_publico'] ?? cuota['id'].toString(), monto),
               ),
             ),
