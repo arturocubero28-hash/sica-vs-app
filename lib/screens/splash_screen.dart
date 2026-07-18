@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api/client.dart';
 import '../api/bloqueo_biometrico.dart';
-import '../api/recuperacion_comprobante.dart';
 import '../theme/app_theme.dart';
 import '../modules/shared/role_router.dart';
 import 'login_screen.dart';
@@ -74,40 +73,15 @@ class _SplashScreenState extends State<SplashScreen> {
     RoleRouter.navegar(context, rol);
   }
 
-  /// Si Android mató la app mientras el residente tomaba la foto del
-  /// comprobante, recupera la foto y completa la subida automáticamente.
+  /// Si Android mató la app mientras el residente tomaba una foto de
+  /// comprobante, NO se sube nada automáticamente — el residente puede
+  /// haber estado acumulando varias fotos para el mismo pago. El estado
+  /// queda intacto y la pantalla de cuotas lo recupera cuando el residente
+  /// vuelve a intentar subir el comprobante de esa cuota.
   Future<void> _recuperarComprobanteSiHubo() async {
-    final pendiente = await RecuperacionComprobante.leerPendiente();
-    if (pendiente == null) return;
-
-    final foto = await RecuperacionComprobante.recuperarFotoPerdida();
-    if (foto == null) {
-      // No hay foto para recuperar — limpiar el estado huérfano
-      await RecuperacionComprobante.limpiar();
-      return;
-    }
-
-    final id    = pendiente['id']?.toString() ?? '';
-    final monto = (pendiente['monto'] as num?)?.toDouble() ?? 0.0;
-    final tipo  = pendiente['tipo']?.toString() ?? 'cuota';
-
-    if (id.isEmpty) {
-      await RecuperacionComprobante.limpiar();
-      return;
-    }
-
-    try {
-      if (tipo == 'cuota') {
-        await ResidenteApi.subirComprobante(id, foto, monto);
-      } else {
-        await ResidenteApi.subirComprobanteAbono(id, foto, monto);
-      }
-      await RecuperacionComprobante.limpiar();
-      // El usuario verá el comprobante subido cuando llegue a la pantalla de cuotas
-    } catch (_) {
-      // Si falla, limpiar igualmente para no quedar en loop infinito
-      await RecuperacionComprobante.limpiar();
-    }
+    // Sin acción: se deja el estado pendiente en SharedPreferences tal cual.
+    // _PantallaMultiplesComprobantes lo lee en su initState() cuando el
+    // residente reabre la subida de esa cuota específica.
   }
 
   Future<void> _reintentar() async {

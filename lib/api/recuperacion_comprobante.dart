@@ -6,24 +6,31 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Maneja la recuperación del comprobante de pago cuando Android mata el
 /// proceso al abrir la cámara (común en teléfonos de poca RAM como el Moto E15).
 ///
-/// Estrategia: persiste en disco qué cuota/abono se está pagando ANTES de
-/// abrir la cámara. Si Android mata el proceso, al reabrir la app detecta
-/// que hay una subida pendiente, recupera la foto con retrieveLostData() y
-/// completa la subida automáticamente.
+/// El residente puede adjuntar VARIOS comprobantes a un mismo pago (ej.
+/// depositó en dos partes). Mientras arma esa lista, cada vez que abre la
+/// cámara para agregar una foto más, se persiste el contexto completo
+/// (cuota/abono + las rutas ya acumuladas) antes de abrir la cámara. Si
+/// Android mata el proceso, al reabrir la app se recupera la foto nueva
+/// con retrieveLostData() y se restaura la lista completa donde se quedó
+/// — el residente no pierde las fotos que ya había agregado.
 class RecuperacionComprobante {
   static const _kPendiente = 'comprobante_pendiente';
 
-  /// Guarda el contexto de la subida antes de abrir la cámara.
+  /// Guarda el contexto de la subida antes de abrir la cámara: el id de la
+  /// cuota/abono, el monto, y las rutas de los archivos ya acumulados hasta
+  /// ahora (antes de agregar la foto que se está por tomar).
   static Future<void> guardar({
     required String id,
     required double monto,
     required String tipo, // 'cuota' o 'abono'
+    List<String> rutasAcumuladas = const [],
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kPendiente, jsonEncode({
       'id': id,
       'monto': monto,
       'tipo': tipo,
+      'rutas': rutasAcumuladas,
     }));
   }
 

@@ -247,43 +247,6 @@ class _CuotaCard extends StatelessWidget {
             ),
           ],
 
-          // PAY-11: si hay pagos parciales aprobados, mostrar con claridad
-          // cuánto se ha pagado y cuánto falta — en vez de que la cuota
-          // simplemente siga apareciendo como pendiente sin explicación.
-          if ((cuota['monto_pagado'] as num? ?? 0) > 0 && estado != 'pagada') ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.amber.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.amber.withOpacity(0.3)),
-              ),
-              child: Row(children: [
-                const Icon(Icons.savings_outlined, size: 16, color: AppColors.amber),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: RichText(
-                    text: TextSpan(
-                      style: const TextStyle(fontSize: 12.5, color: AppColors.gris),
-                      children: [
-                        const TextSpan(text: 'Ya pagaste '),
-                        TextSpan(
-                          text: _fmt.format((cuota['monto_pagado'] as num).toDouble()),
-                          style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.azul),
-                        ),
-                        TextSpan(text: ' de ${_fmt.format(monto)}. Saldo: '),
-                        TextSpan(
-                          text: _fmt.format((cuota['saldo_pendiente'] as num? ?? 0).toDouble()),
-                          style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.rojo),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ]),
-            ),
-          ],
 
           if (!enRevision) ...[
             const SizedBox(height: 12),
@@ -291,7 +254,8 @@ class _CuotaCard extends StatelessWidget {
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.upload_outlined, size: 18),
                 label: const Text('Subir comprobante'),
-                onPressed: () => _subirComprobante(context, cuota['uuid_publico'] ?? cuota['id'].toString(), monto),
+                onPressed: () => _abrirSubidaComprobante(
+                    context, cuota['uuid_publico'] ?? cuota['id'].toString(), monto),
               ),
             ),
           ] else ...[
@@ -308,58 +272,14 @@ class _CuotaCard extends StatelessWidget {
     );
   }
 
-  Future<void> _subirComprobante(BuildContext context, String cuotaId, double monto) async {
-    // Candado: si ya se está subiendo para esta cuota, ignorar el doble toque
+  Future<void> _abrirSubidaComprobante(BuildContext context, String cuotaId, double monto) async {
     if (_subidasEnCurso.contains(cuotaId)) return;
-
-    final fuente = await _elegirFuente(context);
-    if (fuente == null || !context.mounted) return;
-
-    // Pedir permiso según la fuente elegida
-    if (fuente == ImageSource.camera) {
-      final ok = await PermisosService.pedirCamara();
-      if (!ok) {
-        if (context.mounted) _avisoPermiso(context, 'cámara');
-        return;
-      }
-    } else {
-      final ok = await PermisosService.pedirGaleria();
-      if (!ok) {
-        if (context.mounted) _avisoPermiso(context, 'galería');
-        return;
-      }
-    }
-
-    // Persistir antes de abrir la cámara — si Android mata el proceso, el SplashScreen
-    // recupera la foto y completa la subida automáticamente
-    await RecuperacionComprobante.guardar(id: cuotaId, monto: monto, tipo: 'cuota');
-    final archivo = await CamaraHelper.capturar(fuente: fuente, quality: 50, maxSize: 1024);
-    if (archivo == null || !context.mounted) {
-      await RecuperacionComprobante.limpiar();
-      return;
-    }
-
-    _subidasEnCurso.add(cuotaId);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Subiendo comprobante…'), duration: Duration(seconds: 30)));
-
-    try {
-      await ResidenteApi.subirComprobante(cuotaId, archivo, monto);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✓ Comprobante enviado'), backgroundColor: AppColors.verde));
-      await RecuperacionComprobante.limpiar();
-      onPagada();
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      // El backend devuelve mensajes claros sobre formato/tamaño: los mostramos completos
-      _mostrarErrorArchivo(context, e.toString());
-    } finally {
-      _subidasEnCurso.remove(cuotaId);
-      await RecuperacionComprobante.limpiar();
-    }
+    final resultado = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => _PantallaMultiplesComprobantes(
+        cuotaId: cuotaId, monto: monto,
+      )),
+    );
+    if (resultado == true) onPagada();
   }
 }
 
@@ -626,4 +546,183 @@ void _mostrarErrorArchivo(BuildContext context, String mensaje) {
       ],
     ),
   );
+}
+
+// ─── Pantalla: subir uno o varios comprobantes para una cuota ─────────────────
+//
+// El residente puede depositar en varias partes (ej. transfirió L500 hoy y
+// L700 mañana). Esta pantalla acumula las fotos antes de enviar — no sube
+// nada hasta que el residente toca "Enviar". El admin va a revisar todas
+// juntas y aprobar el pago completo de una sola vez.
+class _PantallaMultiplesComprobantes extends StatefulWidget {
+  final String cuotaId;
+  final double monto;
+  const _PantallaMultiplesComprobantes({required this.cuotaId, required this.monto});
+
+  @override
+  State<_PantallaMultiplesComprobantes> createState() => _PantallaMultiplesComprobantesState();
+}
+
+class _PantallaMultiplesComprobantesState extends State<_PantallaMultiplesComprobantes> {
+  final List<File> _archivos = [];
+  bool _enviando = false;
+  bool _restaurado = false;
+
+  static const _maxArchivos = 5;
+
+  @override
+  void initState() {
+    super.initState();
+    _restaurarSiHuboReinicio();
+  }
+
+  /// Si Android mató el proceso mientras el residente tomaba una foto,
+  /// recupera esa foto Y las que ya tenía acumuladas antes de abrir la cámara.
+  Future<void> _restaurarSiHuboReinicio() async {
+    final pendiente = await RecuperacionComprobante.leerPendiente();
+    if (pendiente == null || pendiente['id'] != widget.cuotaId) return;
+
+    final rutas = (pendiente['rutas'] as List<dynamic>? ?? []).cast<String>();
+    final fotoNueva = await RecuperacionComprobante.recuperarFotoPerdida();
+
+    if (!mounted) return;
+    setState(() {
+      _archivos.addAll(rutas.map((r) => File(r)));
+      if (fotoNueva != null) _archivos.add(fotoNueva);
+      _restaurado = true;
+    });
+  }
+
+  Future<void> _agregarFoto() async {
+    if (_archivos.length >= _maxArchivos) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Máximo 5 comprobantes por pago'), backgroundColor: AppColors.amber));
+      return;
+    }
+
+    final fuente = await _elegirFuente(context);
+    if (fuente == null || !mounted) return;
+
+    if (fuente == ImageSource.camera) {
+      final ok = await PermisosService.pedirCamara();
+      if (!ok) { if (mounted) _avisoPermiso(context, 'cámara'); return; }
+    } else {
+      final ok = await PermisosService.pedirGaleria();
+      if (!ok) { if (mounted) _avisoPermiso(context, 'galería'); return; }
+    }
+
+    // Persistir el contexto + lo ya acumulado ANTES de abrir la cámara —
+    // si Android mata el proceso, se recupera todo al volver.
+    await RecuperacionComprobante.guardar(
+      id: widget.cuotaId, monto: widget.monto, tipo: 'cuota',
+      rutasAcumuladas: _archivos.map((f) => f.path).toList(),
+    );
+    final archivo = await CamaraHelper.capturar(fuente: fuente, quality: 50, maxSize: 1024);
+    if (archivo == null || !mounted) {
+      await RecuperacionComprobante.limpiar();
+      return;
+    }
+    setState(() => _archivos.add(archivo));
+    await RecuperacionComprobante.limpiar();
+  }
+
+  void _quitarFoto(int i) {
+    setState(() => _archivos.removeAt(i));
+  }
+
+  Future<void> _enviar() async {
+    if (_archivos.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Adjuntá al menos un comprobante'), backgroundColor: AppColors.amber));
+      return;
+    }
+    setState(() => _enviando = true);
+    try {
+      await ResidenteApi.subirComprobante(widget.cuotaId, _archivos, widget.monto);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _enviando = false);
+      _mostrarErrorArchivo(context, e.toString());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Subir comprobante')),
+      body: Column(children: [
+        if (_restaurado)
+          Container(
+            width: double.infinity,
+            color: AppColors.verde.withOpacity(0.1),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            child: const Text('✓ Recuperamos tus fotos después del reinicio',
+                style: TextStyle(fontSize: 12.5, color: AppColors.verde)),
+          ),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.azul.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Text(
+              '¿Depositaste en varias partes? Agregá todos los comprobantes acá. '
+              'La administración los revisa juntos y aprueba el pago completo.',
+              style: TextStyle(fontSize: 12.5, color: AppColors.gris, height: 1.4),
+            ),
+          ),
+        ),
+        Expanded(
+          child: _archivos.isEmpty
+              ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.receipt_long_outlined, size: 56, color: AppColors.gris),
+                  const SizedBox(height: 12),
+                  const Text('Todavía no adjuntaste ningún comprobante',
+                      style: TextStyle(color: AppColors.gris)),
+                ]))
+              : GridView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10),
+                  itemCount: _archivos.length,
+                  itemBuilder: (_, i) => Stack(children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.file(_archivos[i],
+                          width: double.infinity, height: double.infinity, fit: BoxFit.cover),
+                    ),
+                    Positioned(top: 4, right: 4, child: InkWell(
+                      onTap: () => _quitarFoto(i),
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(color: AppColors.rojo, shape: BoxShape.circle),
+                        child: const Icon(Icons.close, size: 14, color: Colors.white),
+                      ),
+                    )),
+                  ]),
+                ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(children: [
+            if (_archivos.length < _maxArchivos)
+              SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                onPressed: _enviando ? null : _agregarFoto,
+                icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                label: Text(_archivos.isEmpty ? 'Adjuntar comprobante' : 'Agregar otro comprobante'),
+              )),
+            const SizedBox(height: 10),
+            SizedBox(width: double.infinity, child: ElevatedButton(
+              onPressed: (_archivos.isEmpty || _enviando) ? null : _enviar,
+              child: Text(_enviando ? 'Enviando…' : 'Enviar comprobante'),
+            )),
+          ]),
+        ),
+      ]),
+    );
+  }
 }

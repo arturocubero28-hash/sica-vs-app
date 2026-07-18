@@ -100,6 +100,27 @@ class ApiClient {
     return _parse(res);
   }
 
+  /// Igual que postMultipart, pero acepta varios archivos bajo el mismo
+  /// nombre de campo (ej. varios comprobantes de un mismo pago, cuando el
+  /// residente depositó en dos partes).
+  static Future<dynamic> postMultipartVarios(
+      String path, List<File> archivos, Map<String, String> fields) async {
+    final token = await AuthStorage.getToken();
+    final req = http.MultipartRequest(
+        'POST', Uri.parse('${ApiConfig.baseUrl}$path'));
+    req.headers.addAll({
+      'Authorization': 'Bearer $token',
+      'ngrok-skip-browser-warning': 'true',
+    });
+    req.fields.addAll(fields);
+    for (final archivo in archivos) {
+      req.files.add(await http.MultipartFile.fromPath('comprobante', archivo.path));
+    }
+    final streamed = await req.send().timeout(ApiConfig.timeout);
+    final res = await http.Response.fromStream(streamed);
+    return _parse(res);
+  }
+
   /// Registra acceso del guardia subiendo las fotos como archivos multipart.
   /// Evita el límite de 1MB de ngrok al no usar base64.
   static Future<dynamic> registrarAcceso({
@@ -205,10 +226,10 @@ class ResidenteApi {
     return res as Map<String, dynamic>;
   }
 
-  static Future<void> subirComprobante(String cuotaId, File archivo, double monto) async {
-    await ApiClient.postMultipart(
+  static Future<void> subirComprobante(String cuotaId, List<File> archivos, double monto) async {
+    await ApiClient.postMultipartVarios(
       '/cuotas/mias/$cuotaId/pagar',
-      archivo,
+      archivos,
       {'metodo': 'transferencia', 'monto': monto.toStringAsFixed(2)},
     );
   }
