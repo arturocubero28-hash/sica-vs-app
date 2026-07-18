@@ -5,6 +5,7 @@ import '../../theme/app_theme.dart';
 import '../../screens/login_screen.dart';
 import 'scanner_screen.dart';
 import 'accesos_screen.dart';
+import 'seleccionar_punto_screen.dart';
 
 class GuardiaShell extends StatefulWidget {
   const GuardiaShell({super.key});
@@ -16,13 +17,54 @@ class GuardiaShell extends StatefulWidget {
 class _GuardiaShellState extends State<GuardiaShell> {
   int _tab = 0;
   Map<String, dynamic>? _usuario;
+  String? _puntoAcceso;
+  bool _verificandoPunto = true;
 
   @override
-  void initState() { super.initState(); _cargarUsuario(); }
+  void initState() {
+    super.initState();
+    _inicializar();
+  }
+
+  Future<void> _inicializar() async {
+    await _cargarUsuario();
+    await _verificarPuntoAcceso();
+  }
 
   Future<void> _cargarUsuario() async {
     final u = await AuthStorage.getUser();
     if (mounted) setState(() => _usuario = u);
+  }
+
+  /// ACCESS-04 (Auditoría Día 35): el guardia debe elegir su punto de
+  /// acceso antes de poder usar la app. Si ya lo tiene guardado del
+  /// servidor, se usa directo; si no, se muestra la pantalla bloqueante.
+  Future<void> _verificarPuntoAcceso() async {
+    final punto = _usuario?['punto_acceso_actual']?.toString();
+    if (punto != null && punto.isNotEmpty) {
+      if (mounted) setState(() { _puntoAcceso = punto; _verificandoPunto = false; });
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _verificandoPunto = false);
+    // Pantalla bloqueante — no se puede cerrar sin elegir (esCambioVoluntario: false)
+    final elegido = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const SeleccionarPuntoScreen()),
+    );
+    if (mounted && elegido != null) setState(() => _puntoAcceso = elegido);
+  }
+
+  Future<void> _cambiarPunto() async {
+    final elegido = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const SeleccionarPuntoScreen(esCambioVoluntario: true)),
+    );
+    if (mounted && elegido != null) {
+      setState(() => _puntoAcceso = elegido);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Ahora estás en: $elegido'),
+        backgroundColor: AppColors.verde,
+      ));
+    }
   }
 
   Future<void> _logout() async {
@@ -38,6 +80,10 @@ class _GuardiaShellState extends State<GuardiaShell> {
     final nombre = _usuario?['nombre'] ?? '';
     final pantallas = [const ScannerScreen(), const AccesosScreen()];
 
+    if (_verificandoPunto) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Row(children: [
@@ -51,9 +97,26 @@ class _GuardiaShellState extends State<GuardiaShell> {
           ]),
         ]),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.location_on_outlined),
+            tooltip: 'Cambiar punto de acceso',
+            onPressed: _cambiarPunto,
+          ),
           IconButton(icon: const Icon(Icons.logout_outlined),
               tooltip: 'Cerrar sesión', onPressed: _logout),
         ],
+        bottom: _puntoAcceso != null
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(28),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  color: Colors.black12,
+                  child: Text('📍 $_puntoAcceso', textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 11.5, color: Colors.white)),
+                ),
+              )
+            : null,
       ),
       body: pantallas[_tab],
       bottomNavigationBar: NavigationBar(

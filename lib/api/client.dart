@@ -103,25 +103,29 @@ class ApiClient {
   /// Registra acceso del guardia subiendo las fotos como archivos multipart.
   /// Evita el límite de 1MB de ngrok al no usar base64.
   static Future<dynamic> registrarAcceso({
-    required String visita_id,
-    required String direccion,
-    String? placaVehiculo,
+    required String token,
+    String? placaObservada,
     File? fotoId,
     File? fotoPlaca,
     File? fotoNumero,
   }) async {
-    final token = await AuthStorage.getToken();
+    final authToken = await AuthStorage.getToken();
     final req = http.MultipartRequest(
         'POST', Uri.parse('${ApiConfig.baseUrl}/visitas/accesos/visita'));
     req.headers.addAll({
-      'Authorization': 'Bearer $token',
+      'Authorization': 'Bearer $authToken',
       'ngrok-skip-browser-warning': 'true',
     });
-    req.fields['visita_id']  = visita_id;
-    req.fields['direccion']  = direccion;
-    req.fields['acceso_id']  = '1';
-    if (placaVehiculo != null && placaVehiculo.isNotEmpty) {
-      req.fields['placa_vehiculo'] = placaVehiculo;
+    // ACCESS-03: se envía el TOKEN del QR, no un visita_id suelto. El
+    // servidor vuelve a validar todo (revocación, expiración, uso previo)
+    // dentro de una transacción con bloqueo de fila — ya no es posible
+    // saltarse la validación llamando este endpoint directamente.
+    req.fields['token'] = token;
+    if (placaObservada != null && placaObservada.isNotEmpty) {
+      // ACCESS-04: la placa que el guardia observó/digitó viendo el
+      // vehículo, separada de la que el residente declaró al crear la
+      // visita. El servidor guarda ambas y avisa si no coinciden.
+      req.fields['placa_observada'] = placaObservada;
     }
     if (fotoId != null) {
       req.files.add(await http.MultipartFile.fromPath('foto_identidad', fotoId.path));
