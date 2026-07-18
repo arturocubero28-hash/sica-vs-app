@@ -84,12 +84,24 @@ class _QrScreenState extends State<QrScreen> {
   }
 
   void _abrirTarjeta(dynamic visita) {
+    // Los repartidores/delivery usan un código numérico corto y dictable
+    // (el guardia lo escribe manualmente en la garita), NO un QR para
+    // escanear — el residente comparte el número por WhatsApp o lo dicta
+    // por teléfono. Antes la app mostraba el mismo panel de QR para todos
+    // los tipos, aunque el backend ya generaba correctamente el código
+    // numérico para repartidor (visible en la web, pero no en la app).
+    final esDelivery = visita['tipo'] == 'repartidor' &&
+        visita['codigo_numerico'] != null &&
+        visita['codigo_numerico'].toString().isNotEmpty;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => _TarjetaQrPanel(visita: visita, onCancelada: _cargar),
+      builder: (_) => esDelivery
+          ? _CodigoDeliveryPanel(visita: visita, onCancelada: _cargar)
+          : _TarjetaQrPanel(visita: visita, onCancelada: _cargar),
     );
   }
 
@@ -478,6 +490,7 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
   final _nombreCtrl   = TextEditingController();
   final _telefonoCtrl = TextEditingController();
   final _empresaCtrl  = TextEditingController();
+  final _placaCtrl    = TextEditingController();
   bool _enVehiculo    = false;
   DateTime? _validoHasta;
   bool _creando = false;
@@ -486,7 +499,7 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
   @override
   void dispose() {
     _nombreCtrl.dispose(); _telefonoCtrl.dispose();
-    _empresaCtrl.dispose();
+    _empresaCtrl.dispose(); _placaCtrl.dispose();
     super.dispose();
   }
 
@@ -521,6 +534,8 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
         if (_tipo == 'repartidor' && _empresaCtrl.text.trim().isNotEmpty)
           'empresa': _empresaCtrl.text.trim(),
         'en_vehiculo': _enVehiculo,
+        if (_enVehiculo && _placaCtrl.text.trim().isNotEmpty)
+          'placa_vehiculo': _placaCtrl.text.trim(),
         if (_tipo == 'recurrente' && _validoHasta != null)
           'valido_hasta': _validoHasta!.toIso8601String(),
       };
@@ -724,6 +739,22 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
             onChanged: (v) => setState(() => _enVehiculo = v),
           ),
 
+          if (_enVehiculo) ...[
+            const SizedBox(height: 4),
+            TextField(
+              controller: _placaCtrl,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: 'Placa del vehículo (opcional)',
+                hintText: 'Ej. ABC-1234',
+                helperText: 'Si la conocés, ayuda al guardia a confirmar quién llega. '
+                    'Si no la sabés, no pasa nada.',
+                helperMaxLines: 2,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+
           if (_error != null) ...[
             const SizedBox(height: 10),
             Text(_error!, style: const TextStyle(color: AppColors.rojo, fontSize: 13)),
@@ -764,4 +795,147 @@ class _ErrorReintentar extends StatelessWidget {
           label: const Text('Reintentar')),
     ],
   ));
+}
+
+/// Panel para visitas tipo REPARTIDOR/delivery: muestra un código numérico
+/// corto que el guardia digita manualmente en la garita — no un QR para
+/// escanear. El residente lo comparte por WhatsApp o lo dicta por teléfono.
+class _CodigoDeliveryPanel extends StatefulWidget {
+  final dynamic visita;
+  final VoidCallback onCancelada;
+  const _CodigoDeliveryPanel({required this.visita, required this.onCancelada});
+
+  @override
+  State<_CodigoDeliveryPanel> createState() => _CodigoDeliveryPanelState();
+}
+
+class _CodigoDeliveryPanelState extends State<_CodigoDeliveryPanel> {
+  bool _cancelando = false;
+
+  Future<void> _cancelar() async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Cancelar código'),
+        content: const Text(
+            'El código dejará de funcionar y el repartidor no podrá entrar con él. ¿Continuar?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: const Text('Volver')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sí, cancelar', style: TextStyle(color: AppColors.rojo)),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true) return;
+
+    setState(() => _cancelando = true);
+    try {
+      final uuid = widget.visita['uuid_publico'] ?? widget.visita['id'].toString();
+      await ApiClient.post('/visitas/$uuid/cancelar', {});
+      if (!mounted) return;
+      Navigator.pop(context);
+      widget.onCancelada();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: AppColors.rojo));
+    } finally {
+      if (mounted) setState(() => _cancelando = false);
+    }
+  }
+
+  void _compartir() {
+    final codigo = widget.visita['codigo_numerico']?.toString() ?? '';
+    final nombre = widget.visita['nombre_visitante']?.toString() ?? 'tu repartidor';
+    final empresa = widget.visita['empresa']?.toString();
+    final empresaTxt = (empresa != null && empresa.isNotEmpty) ? ' de $empresa' : '';
+    Share.share(
+      'Hola$empresaTxt, tu código de acceso a Villas del Sol es: $codigo\n'
+      'Dáselo al guardia en la entrada. Válido por 6 horas.',
+      subject: 'Código de acceso — $nombre',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final codigo = widget.visita['codigo_numerico']?.toString() ?? '------';
+    final nombre = widget.visita['nombre_visitante']?.toString() ?? '';
+    final empresa = widget.visita['empresa']?.toString();
+    final estado = widget.visita['estado']?.toString() ?? 'activa';
+    final cancelable = estado == 'activa';
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 40, height: 4, decoration: BoxDecoration(
+              color: AppColors.borde, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 20),
+          Row(children: [
+            Container(
+              width: 44, height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.amber.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.delivery_dining, color: AppColors.amber),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(nombre, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.azul)),
+              if (empresa != null && empresa.isNotEmpty)
+                Text(empresa, style: const TextStyle(fontSize: 12, color: AppColors.gris)),
+            ])),
+          ]),
+          const SizedBox(height: 20),
+
+          // Código grande, fácil de dictar por teléfono
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            decoration: BoxDecoration(
+              color: AppColors.grisCl,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.amber.withOpacity(0.4), width: 2),
+            ),
+            child: Column(children: [
+              const Text('CÓDIGO DE ACCESO', style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.gris, letterSpacing: 1)),
+              const SizedBox(height: 8),
+              Text(codigo, style: const TextStyle(
+                  fontSize: 40, fontWeight: FontWeight.w900, color: AppColors.azul, letterSpacing: 4)),
+            ]),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'El guardia digita este código manualmente en la garita. '
+            'No necesita escanear nada. Válido por 6 horas.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12.5, color: AppColors.gris),
+          ),
+          const SizedBox(height: 20),
+
+          SizedBox(width: double.infinity, child: ElevatedButton.icon(
+            onPressed: _compartir,
+            icon: const Icon(Icons.share, size: 18),
+            label: const Text('Compartir por WhatsApp'),
+          )),
+
+          if (cancelable) ...[
+            const SizedBox(height: 10),
+            SizedBox(width: double.infinity, child: OutlinedButton.icon(
+              onPressed: _cancelando ? null : _cancelar,
+              icon: const Icon(Icons.close, size: 18),
+              label: Text(_cancelando ? 'Cancelando…' : 'Cancelar código'),
+              style: OutlinedButton.styleFrom(foregroundColor: AppColors.rojo),
+            )),
+          ],
+        ]),
+      ),
+    );
+  }
 }
