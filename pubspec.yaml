@@ -21,6 +21,12 @@ dependencies:
   flutter_secure_storage: ^9.2.2
 
   # Acceso por Bluetooth de baja energía (BLE)
+  # BLE-08: dependencia preparada para cuando se implemente el advertising/
+  # escaneo BLE real — hoy NO se usa en ningún archivo del proyecto (grep
+  # confirmó cero imports). La credencial BLE (token, clave, contador) ya
+  # se gestiona en api/ble_service.dart, pero eso es solo almacenamiento y
+  # llamadas al backend, no BLE físico. Ver bleAccesoFisicoListo en
+  # theme/app_theme.dart.
   flutter_blue_plus: ^1.32.12
   device_info_plus: ^10.1.2
 

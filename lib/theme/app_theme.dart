@@ -92,3 +92,22 @@ class AppTheme {
     ),
   );
 }
+
+/// BLE-08 (Auditoría Día 35): bandera de funcionalidad — hoy en false
+/// porque no existe hardware lector real (HID Signo u equivalente) ni
+/// el protocolo de desafío-respuesta con la clave secreta implementado
+/// del lado del teléfono. flutter_blue_plus está en pubspec.yaml pero
+/// NUNCA se usa en el código — es solo la dependencia preparada, no hay
+/// ningún advertising ni escaneo BLE real ocurriendo.
+///
+/// Mientras esté en false, la app SIGUE permitiendo registrar la
+/// credencial BLE (útil: deja el dato listo en la base para cuando el
+/// hardware llegue), pero NINGÚN texto le dice al residente que acercarse
+/// a una entrada abre algo — antes la pantalla decía "Acceso Bluetooth
+/// activo" con una animación de radar, dando a entender que la función
+/// ya abría las trancas físicas, cuando en realidad no hacía nada.
+///
+/// Cuando el hardware y el protocolo real estén listos, cambiar esto a
+/// true habilita automáticamente los textos y la animación de "activo"
+/// en tarjeta_virtual_screen.dart — no hace falta tocar nada más ahí.
+const bool bleAccesoFisicoListo = false;

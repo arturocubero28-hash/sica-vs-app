@@ -102,11 +102,12 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
     return Row(children: [
       Expanded(child: _tabMetodo(0, Icons.qr_code_2, 'Código QR')),
       const SizedBox(width: 8),
-      Expanded(child: _tabMetodo(1, Icons.bluetooth, 'Bluetooth')),
+      Expanded(child: _tabMetodo(1, Icons.bluetooth, 'Bluetooth',
+          badge: bleAccesoFisicoListo ? null : 'Próximamente')),
     ]);
   }
 
-  Widget _tabMetodo(int idx, IconData icono, String label) {
+  Widget _tabMetodo(int idx, IconData icono, String label, {String? badge}) {
     final activo = _metodo == idx;
     return InkWell(
       borderRadius: BorderRadius.circular(10),
@@ -124,6 +125,12 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
           Text(label, style: TextStyle(
             fontSize: 12.5, fontWeight: FontWeight.w600,
             color: activo ? Colors.white : AppColors.gris)),
+          if (badge != null) ...[
+            const SizedBox(height: 2),
+            Text(badge, style: TextStyle(
+              fontSize: 9, fontWeight: FontWeight.w700,
+              color: activo ? Colors.white.withOpacity(0.85) : AppColors.amber)),
+          ],
         ]),
       ),
     );
@@ -192,8 +199,12 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
     if (!tiene) {
       return _tarjetaActivarBle(
         titulo: 'Activá el acceso Bluetooth',
-        descripcion: 'Acercate a la entrada con el teléfono para ingresar, '
-            'sin sacar la app ni mostrar nada.',
+        descripcion: bleAccesoFisicoListo
+            ? 'Acercate a la entrada con el teléfono para ingresar, '
+              'sin sacar la app ni mostrar nada.'
+            : 'Registrá tu teléfono para el acceso por Bluetooth. Esta función '
+              'está en preparación — por ahora no abre las trancas físicas, '
+              'te avisaremos por notificación cuando esté lista.',
         onActivar: _activarBle,
       );
     }
@@ -217,24 +228,33 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
       );
     }
 
-    // Activa y vinculada a este teléfono → vista del radar
+    // Activa y vinculada a este teléfono → vista del radar (o de
+    // "en preparación" mientras no exista hardware lector real — BLE-08).
     return Column(children: [
       Container(
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.azul2, width: 3),
+          border: Border.all(
+              color: bleAccesoFisicoListo ? AppColors.azul2 : AppColors.borde, width: 3),
         ),
         child: Column(children: [
-          _radarBle(),
+          bleAccesoFisicoListo ? _radarBle() : _enPreparacionBle(),
           const SizedBox(height: 16),
-          const Text('Acceso Bluetooth activo',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.azul)),
+          Text(
+            bleAccesoFisicoListo ? 'Acceso Bluetooth activo' : 'Credencial Bluetooth vinculada',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.azul),
+          ),
           const SizedBox(height: 4),
-          const Text('Acercate a la entrada con el teléfono',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: AppColors.gris)),
+          Text(
+            bleAccesoFisicoListo
+                ? 'Acercate a la entrada con el teléfono'
+                : 'Todavía no habilita el acceso físico — te avisaremos por '
+                  'notificación cuando esté lista en tu residencial.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: AppColors.gris),
+          ),
           const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -255,6 +275,22 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
       const SizedBox(height: 12),
       _botonSuspender(_suspenderBle),
     ]);
+  }
+
+  /// BLE-08: reemplaza el radar (que da a entender escaneo activo en tiempo
+  /// real) por un ícono neutro mientras no exista hardware lector real.
+  Widget _enPreparacionBle() {
+    return Container(
+      width: 120, height: 120,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.grisCl,
+        border: Border.all(color: AppColors.borde, width: 2),
+      ),
+      child: const Center(
+        child: Icon(Icons.hourglass_top_rounded, size: 44, color: AppColors.gris),
+      ),
+    );
   }
 
   Widget _radarBle() {
