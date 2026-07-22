@@ -1,14 +1,29 @@
-gradle-wrapper.jar
+# Compilados y cache (se regeneran en cada build)
+/build/
 /.gradle
 /captures/
-/gradlew
-/gradlew.bat
-/local.properties
-GeneratedPluginRegistrant.java
 .cxx/
 
-# Remember to never publicly share your keystore.
-# See https://flutter.dev/to/reference-keystore
+# Especifico de cada maquina (ruta local del SDK de Flutter/Android)
+/local.properties
+
+# Autogenerado por Flutter en cada build
+GeneratedPluginRegistrant.java
+
+# SIGN-16: credenciales de firma de release. NUNCA versionar.
+# El .jks se guarda fuera del repo; key.properties apunta a el.
+# Ver android/SIGNING.md
 key.properties
 **/*.keystore
 **/*.jks
+
+# IDE
+*.iml
+.idea/
+
+# NATIVE-10 (Auditoria Dia 35): NO agregar aqui gradlew, gradlew.bat ni
+# gradle-wrapper.jar. El .gitignore que genera Flutter los excluye por
+# defecto, y eso fue justamente lo que dejo el proyecto Android sin
+# versionar — un clon limpio no podia compilar sin copiarlos a mano.
+# El wrapper debe versionarse: fija la version exacta de Gradle para
+# que el build sea reproducible en cualquier maquina.
