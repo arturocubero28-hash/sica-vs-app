@@ -590,21 +590,23 @@ void _mostrarErrorArchivo(BuildContext context, String mensaje) {
 
 // ─── Pantalla: subir uno o varios comprobantes para una cuota ─────────────────
 //
-// PAY-MODEL-21 (Auditoría Día 39). MODELO DE PAGO: varias evidencias, UN
-// solo monto.
+// PAY-MODEL-21 (Auditoría Día 39). MODELO DE PAGO: varios depósitos, UN pago.
 //
-// El residente paga el total de la cuota y puede adjuntar hasta 5 fotos como
-// respaldo de esa misma transacción: el comprobante del banco, el detalle de
-// la transferencia, una segunda toma si la primera salió borrosa. El pago es
-// uno solo, con el monto de la cuota, y el admin lo aprueba o rechaza
-// completo.
+// CASO REAL que motiva los múltiples comprobantes: el residente deposita
+// desde bancos distintos. Ej. L600 en Ficohsa + L600 en Atlántida para
+// cubrir una cuota de L1,200. Son dos transferencias, pero un solo pago por
+// el total de la cuota.
 //
-// Lo que este modelo NO hace: registrar depósitos parciales con montos
-// distintos (L500 el lunes + L700 el viernes). Eso requeriría que cada
-// comprobante tuviera su propio monto, fecha y referencia bancaria, y que
-// el admin pudiera aprobar uno y rechazar otro. La estructura de datos no
-// lo soporta — Pago tiene un único campo 'monto' y ComprobantePago no
-// tiene monto propio.
+// REGLA DE APROBACIÓN: el admin aprueba solo si la suma cubre el monto
+// completo. Si falta, rechaza y deja una nota explicando por qué — el
+// residente la recibe por notificación push (implementado el Día 34).
+// No existe la aprobación parcial.
+//
+// Lo que este modelo NO hace: registrar depósitos parciales como pagos
+// independientes con estados separados (aprobar los L600 de Ficohsa y dejar
+// pendientes los otros L600). Eso requeriría que cada comprobante tuviera
+// monto, fecha y estado propios. La estructura no lo soporta — Pago tiene
+// un único campo 'monto' y ComprobantePago no tiene monto propio.
 //
 // El texto anterior decía "¿Depositaste en varias partes?", lo que
 // prometía justamente eso. Fue el origen del hallazgo de auditoría: la
@@ -728,11 +730,15 @@ class _PantallaMultiplesComprobantesState extends State<_PantallaMultiplesCompro
               // PAY-MODEL-21: el texto anterior era "¿Depositaste en varias
               // partes? Agregá todos los comprobantes acá", que prometía
               // pagos parciales con montos distintos. El sistema registra un
-              // solo monto — el de la cuota. Ahora el texto refleja lo que
-              // realmente hace: varias fotos como respaldo de un mismo pago.
-              'Podés adjuntar varias fotos del mismo pago: el comprobante, '
-              'el detalle de la transferencia, o una segunda toma si la '
-              'primera salió borrosa. Se envían juntas por L ${widget.monto.toStringAsFixed(2)}.',
+              // solo monto — el de la cuota completa.
+              //
+              // El caso real que motiva los múltiples comprobantes: el
+              // residente deposita desde bancos distintos (L600 en Ficohsa +
+              // L600 en Atlántida para una cuota de L1,200). Son varios
+              // depósitos, pero un solo pago por el total.
+              'Si depositaste desde más de un banco, agregá el comprobante de '
+              'cada uno. La suma debe cubrir los L ${widget.monto.toStringAsFixed(2)} '
+              'de la cuota — si falta, la administración lo rechaza y te avisa por qué.',
               style: const TextStyle(fontSize: 12.5, color: AppColors.gris, height: 1.4),
             ),
           ),
