@@ -590,10 +590,25 @@ void _mostrarErrorArchivo(BuildContext context, String mensaje) {
 
 // ─── Pantalla: subir uno o varios comprobantes para una cuota ─────────────────
 //
-// El residente puede depositar en varias partes (ej. transfirió L500 hoy y
-// L700 mañana). Esta pantalla acumula las fotos antes de enviar — no sube
-// nada hasta que el residente toca "Enviar". El admin va a revisar todas
-// juntas y aprobar el pago completo de una sola vez.
+// PAY-MODEL-21 (Auditoría Día 39). MODELO DE PAGO: varias evidencias, UN
+// solo monto.
+//
+// El residente paga el total de la cuota y puede adjuntar hasta 5 fotos como
+// respaldo de esa misma transacción: el comprobante del banco, el detalle de
+// la transferencia, una segunda toma si la primera salió borrosa. El pago es
+// uno solo, con el monto de la cuota, y el admin lo aprueba o rechaza
+// completo.
+//
+// Lo que este modelo NO hace: registrar depósitos parciales con montos
+// distintos (L500 el lunes + L700 el viernes). Eso requeriría que cada
+// comprobante tuviera su propio monto, fecha y referencia bancaria, y que
+// el admin pudiera aprobar uno y rechazar otro. La estructura de datos no
+// lo soporta — Pago tiene un único campo 'monto' y ComprobantePago no
+// tiene monto propio.
+//
+// El texto anterior decía "¿Depositaste en varias partes?", lo que
+// prometía justamente eso. Fue el origen del hallazgo de auditoría: la
+// interfaz sugería una función que el sistema no tiene.
 class _PantallaMultiplesComprobantes extends StatefulWidget {
   final String cuotaId;
   final double monto;
@@ -709,10 +724,16 @@ class _PantallaMultiplesComprobantesState extends State<_PantallaMultiplesCompro
               color: AppColors.azul.withOpacity(0.06),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Text(
-              '¿Depositaste en varias partes? Agregá todos los comprobantes acá. '
-              'La administración los revisa juntos y aprueba el pago completo.',
-              style: TextStyle(fontSize: 12.5, color: AppColors.gris, height: 1.4),
+            child: Text(
+              // PAY-MODEL-21: el texto anterior era "¿Depositaste en varias
+              // partes? Agregá todos los comprobantes acá", que prometía
+              // pagos parciales con montos distintos. El sistema registra un
+              // solo monto — el de la cuota. Ahora el texto refleja lo que
+              // realmente hace: varias fotos como respaldo de un mismo pago.
+              'Podés adjuntar varias fotos del mismo pago: el comprobante, '
+              'el detalle de la transferencia, o una segunda toma si la '
+              'primera salió borrosa. Se envían juntas por L ${widget.monto.toStringAsFixed(2)}.',
+              style: const TextStyle(fontSize: 12.5, color: AppColors.gris, height: 1.4),
             ),
           ),
         ),
