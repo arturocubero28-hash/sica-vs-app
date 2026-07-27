@@ -25,7 +25,9 @@ import '../api/client.dart';
 /// sin necesidad de volver a pedirle nada al backend.
 
 const double kAnchoTarjeta = 600;
-const double kAltoTarjeta = 880;
+// Día 47: se sube de 880 a 1010 para sumar la fila de recomendaciones de
+// acceso (íconos) sin apretar el resto del contenido.
+const double kAltoTarjeta = 1010;
 
 class TarjetaQR extends StatelessWidget {
   final Map<String, dynamic> visita;
@@ -131,7 +133,8 @@ class TarjetaQR extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('RESIDENCIAL', style: TextStyle(
-                      fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white)),
+                      fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white,
+                      letterSpacing: 1.2)),
                   const SizedBox(height: 6),
                   // FittedBox reduce el tamaño de fuente automáticamente si
                   // el nombre es muy largo, en vez de desbordar o cortar
@@ -176,7 +179,11 @@ class TarjetaQR extends StatelessWidget {
         Container(height: 2, width: kAnchoTarjeta - 160, color: const Color(0xFFE6E6E6)),
         const SizedBox(height: 18),
 
-        // ── Nombre del visitante ──
+        // ── Nombre del visitante + tipo de visita, agrupados ──
+        // Día 47: se ajusta la tipografía para un look más moderno —
+        // letterSpacing levemente negativo en el nombre grande (recurso
+        // típico de diseño de tarjetas/credenciales: texto grande y bold
+        // se ve más prolijo con las letras un poco más juntas).
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 30),
           child: Text(
@@ -184,13 +191,12 @@ class TarjetaQR extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-                fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.azul),
+            style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800,
+                color: AppColors.azul, letterSpacing: -0.5),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
 
-        // ── Pill del tipo de visita ──
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
           decoration: BoxDecoration(
@@ -198,9 +204,10 @@ class TarjetaQR extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
           ),
           child: Text(_tipoTexto, style: const TextStyle(
-              fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
+              fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white,
+              letterSpacing: 0.2)),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
 
         // ── Detalles opcionales ──
         // Expanded absorbe el espacio sobrante y centra los detalles.
@@ -220,10 +227,31 @@ class TarjetaQR extends StatelessWidget {
           ),
         ),
 
+        // ── Recomendaciones de acceso (Día 47) ──
+        // Fila de pictogramas al estilo señalética vial: ícono + 1-2
+        // palabras debajo, sin párrafos largos — la tarjeta se mira rápido,
+        // en la entrada. Código de color con significado, igual que una
+        // señal de tránsito real: azul = informativo/obligatorio, naranja =
+        // cortesía esperada, rojo = prohibición.
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _iconoConsejo(Icons.speed, 'Máx.\n20 km/h', AppColors.azul),
+              _iconoConsejo(Icons.pets, 'Peatones y\nmascotas', AppColors.naranja),
+              _iconoConsejo(Icons.badge, 'Muestre\nidentificación', AppColors.azul),
+              _iconoConsejo(Icons.directions_car, 'Baje el\nvidrio', AppColors.naranja),
+              _iconoConsejo(Icons.local_parking, 'No estacione\nen comunes', AppColors.rojo),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
         // ── Pie de página ──
         const Text('Presente este código al guardia en la entrada',
-            style: TextStyle(fontSize: 15, color: Color(0xFF969696))),
-        const SizedBox(height: 18),
+            style: TextStyle(fontSize: 14, color: Color(0xFF969696), letterSpacing: 0.1)),
+        const SizedBox(height: 16),
 
         // ── Franja inferior naranja ──
         Container(height: 14, width: double.infinity, color: AppColors.naranja),
@@ -239,6 +267,37 @@ class TarjetaQR extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: 10),
     child: Text(texto, style: const TextStyle(fontSize: 17, color: Color(0xFF5A5A5A))),
   );
+
+  /// Pictograma de la fila de "recomendaciones de acceso" (Día 47): un
+  /// ícono en círculo de color + 1-2 palabras debajo, al estilo señalética
+  /// vial. `color` no es decorativo — codifica el significado (ver el
+  /// comentario donde se arma la fila): azul = informativo, naranja =
+  /// cortesía, rojo = prohibición.
+  Widget _iconoConsejo(IconData icono, String texto, Color color) {
+    return SizedBox(
+      width: 96,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 46, height: 46,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            child: Icon(icono, color: Colors.white, size: 24),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            texto,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                fontSize: 11.5, fontWeight: FontWeight.w600,
+                color: Color(0xFF6B6B6B), height: 1.25),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _placeholderError() => Container(
     width: kAnchoTarjeta, height: kAltoTarjeta,
