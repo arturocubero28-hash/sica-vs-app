@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -263,11 +264,13 @@ class QrImageViewWidget extends StatelessWidget {
 /// Mi Perfil) en vez del asset fijo de Villas del Sol. Reutilizable en
 /// cualquier pantalla que antes usaba Image.asset('assets/images/logo.png').
 ///
-/// El endpoint que sirve el logo requiere sesión (@token_required), así que
-/// no alcanza con Image.network(url) simple — hace falta resolver los headers
-/// de autenticación primero. Mientras se resuelven (o si no hay logo, o si la
-/// descarga falla), se muestra un ícono de respaldo, nunca un logo de otra
-/// residencial ni un espacio en blanco permanente.
+/// Primero busca el logo en el CACHÉ EN DISCO (ResidencialCache.logoLocal,
+/// descargado una única vez tras el login — ver asegurarLogoDescargado). Eso
+/// hace que la app no vuelva a pedir la imagen por red en cada apertura. Si
+/// por algún motivo todavía no está en disco (primera vez muy rápida, sin
+/// conexión al momento de la descarga inicial, etc.), cae a pedirlo por red
+/// como respaldo. Si no hay logo subido, o toda descarga falla, se muestra un
+/// ícono de respaldo — nunca un logo de otra residencial ni un hueco vacío.
 class LogoResidencial extends StatelessWidget {
   final double size;
   final Color colorRespaldo;
@@ -283,18 +286,34 @@ class LogoResidencial extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final respaldo = Icon(Icons.shield, color: colorRespaldo, size: size);
-    final url = ResidencialCache.logoUrl;
-    if (url == null) return respaldo;
 
-    return FutureBuilder<Map<String, String>>(
-      future: ApiClient.authHeaders(),
-      builder: (context, snap) {
-        if (!snap.hasData) return respaldo;
-        return Image.network(
-          url,
-          headers: snap.data,
-          fit: fit,
-          errorBuilder: (_, __, ___) => respaldo,
+    return FutureBuilder<File?>(
+      future: ResidencialCache.logoLocal(),
+      builder: (context, snapLocal) {
+        if (snapLocal.connectionState != ConnectionState.done) {
+          return respaldo; // evita parpadeo mientras resuelve (es una lectura de disco, rápida)
+        }
+        final archivoLocal = snapLocal.data;
+        if (archivoLocal != null) {
+          return Image.file(archivoLocal, fit: fit, errorBuilder: (_, __, ___) => respaldo);
+        }
+
+        // Respaldo: todavía no está en disco (raro, pero posible) — se pide
+        // por red esta vez. asegurarLogoDescargado() lo dejará cacheado para
+        // la próxima.
+        final url = ResidencialCache.logoUrl;
+        if (url == null) return respaldo;
+        return FutureBuilder<Map<String, String>>(
+          future: ApiClient.authHeaders(),
+          builder: (context, snap) {
+            if (!snap.hasData) return respaldo;
+            return Image.network(
+              url,
+              headers: snap.data,
+              fit: fit,
+              errorBuilder: (_, __, ___) => respaldo,
+            );
+          },
         );
       },
     );

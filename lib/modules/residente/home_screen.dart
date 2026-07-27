@@ -95,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
         r?['nombre'] as String?,
         logoArchivo: r?['logo_archivo'] as String?,
       );
+      ResidencialCache.asegurarLogoDescargado(); // no bloquea; queda en disco para siempre
     } catch (_) { /* se queda con el valor por defecto */ }
   }
 

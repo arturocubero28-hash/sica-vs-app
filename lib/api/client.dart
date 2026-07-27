@@ -3,14 +3,19 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:path_provider/path_provider.dart';
 import 'config.dart';
 import 'models.dart';
 
 // ── Nombre/logo de la residencial (Día 46) ─────────────────────────────────────
-/// Caché simple en memoria del nombre y logo de la residencial del usuario
-/// logueado. Se llena una vez al entrar a la app (ver HomeScreen._cargar
-/// Residencial) y se usa en las pantallas que antes tenían "Villas del Sol" y
-/// el logo fijo (assets/images/logo.png) escritos directamente en el código.
+/// Caché del nombre y logo de la residencial del usuario logueado.
+///
+/// El NOMBRE vive en memoria (se recarga cada apertura de la app, es una
+/// consulta liviana). El LOGO se descarga UNA SOLA VEZ y se guarda en el
+/// almacenamiento persistente del dispositivo (sobrevive a reinicios de la
+/// app; solo desaparece si se desinstala o se borran los datos) — así la
+/// marca de agua y demás usos del logo no vuelven a pedir la red después de
+/// la primera vez.
 ///
 /// Si por algún motivo no se pudo cargar todavía, [nombre] devuelve
 /// "tu residencial" como texto neutro — nunca queda vacío ni asume un nombre
@@ -24,8 +29,6 @@ class ResidencialCache {
   static String get nombre => _nombre ?? 'tu residencial';
 
   /// URL completa y autenticable del logo, o null si no hay logo subido.
-  /// Usar con ApiClient.authHeaders() en Image.network (el endpoint requiere
-  /// sesión, aunque el logo en sí no es información privada).
   static String? get logoUrl => _logoArchivo == null
       ? null
       : '${ApiConfig.baseUrl}/unidades/mi-residencial/logo/$_logoArchivo';
@@ -34,6 +37,43 @@ class ResidencialCache {
     if (nombre != null && nombre.trim().isNotEmpty) _nombre = nombre;
     if (logoArchivo != null && logoArchivo.trim().isNotEmpty) {
       _logoArchivo = logoArchivo;
+    }
+  }
+
+  /// Ruta local del logo de ESTE archivo remoto en particular. Se incluye el
+  /// nombre del archivo del servidor para que, si el dispositivo se usa con
+  /// distintas cuentas/residenciales (como en pruebas), cada logo tenga su
+  /// propio archivo en disco sin pisarse entre sí.
+  static Future<File> _archivoLocal(String logoArchivo) async {
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}/residencial_logo_$logoArchivo');
+  }
+
+  /// Devuelve el archivo local del logo si ya fue descargado antes, o null si
+  /// todavía no existe en disco (primera vez, o el logo cambió).
+  static Future<File?> logoLocal() async {
+    if (_logoArchivo == null) return null;
+    final file = await _archivoLocal(_logoArchivo!);
+    return await file.exists() ? file : null;
+  }
+
+  /// Descarga el logo y lo guarda en disco, PERO SOLO si todavía no existe
+  /// localmente — así se descarga una única vez por logo. Se llama en
+  /// segundo plano después del login; si falla (sin red, etc.) no rompe
+  /// nada, simplemente se reintentará la próxima vez que se llame a esto.
+  static Future<void> asegurarLogoDescargado() async {
+    if (_logoArchivo == null) return;
+    final file = await _archivoLocal(_logoArchivo!);
+    if (await file.exists()) return; // ya en disco, no hace falta bajar de nuevo
+    try {
+      final headers = await ApiClient.authHeaders();
+      final res = await http.get(Uri.parse(logoUrl!), headers: headers);
+      if (res.statusCode == 200) {
+        await file.writeAsBytes(res.bodyBytes);
+      }
+    } catch (_) {
+      // Sin conexión u otro error: se reintenta en la próxima llamada porque
+      // el archivo nunca se llegó a crear.
     }
   }
 }

@@ -8,6 +8,7 @@ import 'cuotas_screen.dart';
 import 'home_screen.dart';
 import 'mas_screen.dart';
 import 'tarjeta_virtual_screen.dart';
+import '../../widgets/tarjeta_qr.dart';
 
 class ResidenteShell extends StatefulWidget {
   const ResidenteShell({super.key});
@@ -92,7 +93,9 @@ class _ResidenteShellState extends State<ResidenteShell> {
         ),
         Expanded(
           child: Stack(children: [
-            // Fondo con marca de agua sutil del logo
+            // Fondo con marca de agua sutil del logo. Día 46: antes era el
+            // asset fijo de Villas del Sol; ahora usa el logo real de la
+            // residencial (cacheado en disco, no vuelve a pedir la red).
             Positioned.fill(
               child: IgnorePointer(
                 child: Column(
@@ -100,11 +103,14 @@ class _ResidenteShellState extends State<ResidenteShell> {
                   children: [
                     Opacity(
                       opacity: 0.04,
-                      child: Image.asset(
-                        'assets/images/logo.png',
+                      child: SizedBox(
                         width: 280,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        child: LogoResidencial(
+                          size: 280,
+                          // Decorativo: si no hay logo, mejor no mostrar nada
+                          // que un escudo genérico grande de fondo.
+                          colorRespaldo: Colors.transparent,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 80),
