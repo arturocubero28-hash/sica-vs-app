@@ -25,7 +25,7 @@ import '../api/client.dart';
 /// Para compartir, `RepaintBoundary` captura el widget ya renderizado a PNG
 /// sin necesidad de volver a pedirle nada al backend.
 
-const double kAnchoTarjeta = 640;
+const double kAnchoTarjeta = 720;
 // Día 47: se sube de 880 a 1010 para sumar la fila de recomendaciones de
 // acceso (íconos) sin apretar el resto del contenido.
 const double kAltoTarjeta = 1010;
@@ -56,6 +56,17 @@ class TarjetaQR extends StatelessWidget {
     return '${p(d.day)}/${p(d.month)}/${d.year} a las ${p(d.hour)}:${p(d.minute)}';
   }
 
+  // Día 47, a pedido del usuario (referencia de otra app con más datos en
+  // la tarjeta): fecha de creación, con el mismo formato que _validoHasta.
+  String? get _creado {
+    final v = visita['created_at'];
+    if (v == null) return null;
+    final d = DateTime.tryParse(v.toString())?.toLocal();
+    if (d == null) return null;
+    String p(int n) => n.toString().padLeft(2, '0');
+    return '${p(d.day)}/${p(d.month)}/${d.year} a las ${p(d.hour)}:${p(d.minute)}';
+  }
+
   /// Devuelve el valor del campo si existe y no está vacío; si no, null.
   String? _campo(String clave) {
     final v = visita[clave];
@@ -66,6 +77,11 @@ class TarjetaQR extends StatelessWidget {
 
   String? get _placa => _campo('placa_vehiculo');
   String? get _empresa => _campo('empresa');
+  // Día 47: los tres siguientes ya venían en el backend sin necesidad de
+  // tocar nada, salvo 'direccion' que se agregó a pedido del usuario.
+  String? get _generadaPor => _campo('generada_por');
+  String? get _codigoNumerico => _campo('codigo_numerico');
+  String? get _direccion => _campo('direccion');
 
   @override
   Widget build(BuildContext context) {
@@ -243,9 +259,16 @@ class TarjetaQR extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
+                // Día 47: orden pensado como lo pediría un guardia leyendo
+                // de arriba a abajo — primero quién y por quién, después
+                // vigencia, y al final los datos de contacto/vehículo.
+                if (_generadaPor != null) _detalle('Invita: $_generadaPor', icono: Icons.person_outline),
+                if (_direccion != null) _detalle('Dirección: $_direccion', icono: Icons.home_outlined),
+                if (_creado != null) _detalle('Creado: $_creado', icono: Icons.event_outlined),
                 if (_validoHasta != null) _detalle('Válido hasta: $_validoHasta', icono: Icons.calendar_today_outlined),
+                if (_codigoNumerico != null) _detalle('Código: $_codigoNumerico', icono: Icons.pin_outlined),
                 if (_placa != null) _detalle('Vehículo: $_placa', icono: Icons.directions_car_outlined),
-                if (_empresa != null) _detalle('Empresa: $_empresa'),
+                if (_empresa != null) _detalle('Empresa: $_empresa', icono: Icons.apartment_outlined),
               ],
             ),
           ),
@@ -310,27 +333,28 @@ class TarjetaQR extends StatelessWidget {
   /// comentario donde se arma la fila): azul = informativo, naranja =
   /// cortesía, rojo = prohibición.
   Widget _iconoConsejo(IconData icono, String texto, Color color) {
-    // Día 47, a pedido del usuario: círculo e ícono un 30% más grandes que
-    // la versión original (46→60, 24→31), con la tarjeta ensanchada
-    // (600→640) para que las 5 columnas sigan entrando cómodas.
+    // Día 47: el usuario probó el primer aumento (30%, 46→60) y seguía
+    // viéndolos chicos — salto más decisivo esta vez (46→80, casi el
+    // doble). La tarjeta se ensancha a 720 para que las 5 columnas (de
+    // 130px cada una) sigan entrando sin desbordar.
     return SizedBox(
-      width: 116,
+      width: 130,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 60, height: 60,
+            width: 80, height: 80,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            child: Icon(icono, color: Colors.white, size: 31),
+            child: Icon(icono, color: Colors.white, size: 42),
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 8),
           Text(
             texto,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(
-                fontSize: 13, fontWeight: FontWeight.w600,
+                fontSize: 14, fontWeight: FontWeight.w600,
                 color: const Color(0xFF6B6B6B), height: 1.25),
           ),
         ],
