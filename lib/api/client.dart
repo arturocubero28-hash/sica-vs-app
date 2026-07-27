@@ -28,7 +28,7 @@ class ResidencialCache {
   /// sesión, aunque el logo en sí no es información privada).
   static String? get logoUrl => _logoArchivo == null
       ? null
-      : '${ApiConfig.baseUrl}/cuentas/mi-residencial/logo/$_logoArchivo';
+      : '${ApiConfig.baseUrl}/unidades/mi-residencial/logo/$_logoArchivo';
 
   static void set(String? nombre, {String? logoArchivo}) {
     if (nombre != null && nombre.trim().isNotEmpty) _nombre = nombre;
@@ -278,7 +278,7 @@ class ResidenteApi {
   // de otra residencial veía ese nombre igual. Mismo endpoint que ya usa el
   // panel web (existe desde el Día 37).
   static Future<Map<String, dynamic>?> miResidencial() async {
-    final res = await ApiClient.get('/cuentas/mi-residencial');
+    final res = await ApiClient.get('/unidades/mi-residencial');
     if (res == null) return null;
     return res as Map<String, dynamic>;
   }
