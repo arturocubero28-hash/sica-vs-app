@@ -2,6 +2,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
 import 'client.dart';
+import '../theme/app_theme.dart';
 
 /// Maneja las notificaciones push (Firebase Cloud Messaging) de SICA-VS.
 ///
@@ -84,7 +85,14 @@ class NotificacionesService {
           importance: Importance.high,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
-          color: const Color(0xFFF48723),
+          // Día 47: se deja FIJO a propósito (no AppColors.naranja, el
+          // dinámico) — este handler puede correr en un proceso en
+          // segundo plano con la app cerrada (notificación push), donde
+          // el color personalizado de la residencial podría no estar
+          // cargado todavía en memoria en ese proceso aislado. Usar el
+          // valor fijo es más confiable que arriesgar un color a medio
+          // cargar en un contexto sin garantías de inicialización.
+          color: AppColors.naranjaDeFabrica,
         ),
       ),
     );

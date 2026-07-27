@@ -76,15 +76,28 @@ class TarjetaQR extends StatelessWidget {
       height: kAltoTarjeta,
       color: Colors.white,
       child: Column(children: [
-        // ── Encabezado con degradado naranja ──
+        // ── Encabezado con degradado naranja (color secundario) ──
         Container(
           height: 175,
           width: double.infinity,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFF48723), Color(0xFFFFBE6E)],
+              // Día 47 — bug encontrado por el usuario: este degradado
+              // estaba escrito con hex literal (0xFFF48723/0xFFFFBE6E), sin
+              // pasar nunca por AppColors.naranja — por eso no seguía el
+              // color secundario personalizado aunque todo lo demás sí.
+              // Para el caso de fábrica se usa el segundo tono exacto
+              // original (no es una relación matemática limpia con el
+              // primero); para un naranja personalizado se deriva
+              // aclarando, mismo criterio que AppColors.azul2.
+              colors: [
+                AppColors.naranja,
+                AppColors.naranja.value == AppColors.naranjaDeFabrica.value
+                    ? const Color(0xFFFFBE6E)
+                    : AppColors.aclarar(AppColors.naranja, 0.4),
+              ],
             ),
           ),
           child: Row(children: [

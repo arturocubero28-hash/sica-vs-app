@@ -55,7 +55,7 @@ class AppColors {
       // fábrica, en cuyo caso se usa el valor de fábrica real (no es una
       // relación matemática limpia, fue elegido a mano en el diseño
       // original). Mismo criterio que la web.
-      azul2 = (p.value == azulDeFabrica.value) ? _azul2DeFabrica : _aclarar(p, 0.35);
+      azul2 = (p.value == azulDeFabrica.value) ? _azul2DeFabrica : aclarar(p, 0.35);
       huboCambio = true;
     }
     final s = _parsearHex(secundario);
@@ -73,9 +73,10 @@ class AppColors {
     return Color(0xFF000000 | valor);
   }
 
-  /// Aclara un color hacia blanco un porcentaje (0 a 1), para el tono de
-  /// hover/degradado cuando no hay un valor de fábrica exacto que usar.
-  static Color _aclarar(Color base, double cantidad) {
+  /// Aclara un color hacia blanco un porcentaje (0 a 1) — pública para
+  /// reutilizarla en widgets que necesiten un tono derivado del color
+  /// dinámico (ej. el degradado del encabezado en tarjeta_qr.dart).
+  static Color aclarar(Color base, double cantidad) {
     int canal(int c) => (c + (255 - c) * cantidad).round();
     return Color.fromARGB(
       255,
