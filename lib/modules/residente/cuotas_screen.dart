@@ -27,7 +27,7 @@ Future<ImageSource?> _elegirFuente(BuildContext context) {
         Container(width: 40, height: 4, decoration: BoxDecoration(
             color: AppColors.borde, borderRadius: BorderRadius.circular(2))),
         const SizedBox(height: 8),
-        const Padding(
+        Padding(
           padding: EdgeInsets.all(16),
           child: Text('Subir comprobante',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.azul)),
@@ -99,7 +99,7 @@ class _CuotasScreenState extends State<CuotasScreen> {
       child: Column(children: [
         Container(
           color: Colors.white,
-          child: const TabBar(
+          child: TabBar(
             labelColor: AppColors.azul,
             unselectedLabelColor: AppColors.gris,
             indicatorColor: AppColors.naranja,
@@ -279,7 +279,7 @@ class _CuotaCard extends StatelessWidget {
                 color: AppColors.azul.withOpacity(0.06),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Row(children: [
+              child: Row(children: [
                 Icon(Icons.info_outline, size: 16, color: AppColors.azul),
                 SizedBox(width: 6),
                 Expanded(child: Text('Tenés una cuota más antigua sin pagar. Pagá esa primero.',
@@ -428,7 +428,7 @@ class _SeccionHeader extends StatelessWidget {
   Widget build(BuildContext context) => Row(children: [
     Icon(icono, size: 18, color: AppColors.azul),
     const SizedBox(width: 8),
-    Text(titulo, style: const TextStyle(
+    Text(titulo, style: TextStyle(
         fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
   ]);
 }
@@ -520,7 +520,7 @@ class _HistorialPagos extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(etiqueta, style: const TextStyle(
+                Text(etiqueta, style: TextStyle(
                     fontWeight: FontWeight.w700, color: AppColors.azul)),
                 if (fecha != null)
                   Text(_fmtFechaHora.format(fecha),
@@ -529,7 +529,7 @@ class _HistorialPagos extends StatelessWidget {
                   Text(metodo, style: const TextStyle(fontSize: 12, color: AppColors.gris)),
               ])),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(_fmt.format(monto), style: const TextStyle(
+                Text(_fmt.format(monto), style: TextStyle(
                     fontWeight: FontWeight.w800, color: AppColors.azul, fontSize: 15)),
                 if (recibo != null)
                   Text('REC-$recibo', style: const TextStyle(

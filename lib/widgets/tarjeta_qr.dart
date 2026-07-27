@@ -151,9 +151,9 @@ class TarjetaQR extends StatelessWidget {
             padding: EdgeInsets.zero,
             errorCorrectionLevel: QrErrorCorrectLevel.H,
             backgroundColor: Colors.white,
-            eyeStyle: const QrEyeStyle(
+            eyeStyle: QrEyeStyle(
               eyeShape: QrEyeShape.square, color: AppColors.azul),
-            dataModuleStyle: const QrDataModuleStyle(
+            dataModuleStyle: QrDataModuleStyle(
               dataModuleShape: QrDataModuleShape.circle, color: AppColors.azul),
           ),
         ),
@@ -171,7 +171,7 @@ class TarjetaQR extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.azul),
           ),
         ),
@@ -273,7 +273,7 @@ class QrImageViewWidget extends StatelessWidget {
     errorCorrectionLevel: QrErrorCorrectLevel.H,
     backgroundColor: Colors.white,
     eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.square, color: AppColors.azul),
-    dataModuleStyle: const QrDataModuleStyle(
+    dataModuleStyle: QrDataModuleStyle(
         dataModuleShape: QrDataModuleShape.circle, color: AppColors.azul),
   );
 }

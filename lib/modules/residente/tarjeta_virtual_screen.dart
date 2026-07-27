@@ -79,7 +79,7 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
       padding: const EdgeInsets.all(16),
       child: Column(children: [
         Row(children: [
-          const Expanded(
+          Expanded(
             child: Text('Mi tarjeta de acceso',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.azul)),
           ),

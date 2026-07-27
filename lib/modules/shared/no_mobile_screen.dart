@@ -35,12 +35,12 @@ class NoMobileScreen extends StatelessWidget {
                     color: AppColors.azul.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.desktop_windows_outlined,
+                  child: Icon(Icons.desktop_windows_outlined,
                       size: 64, color: AppColors.azul),
                 ),
                 const SizedBox(height: 24),
                 Text('Hola, $_nombreRol',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 22, fontWeight: FontWeight.w700,
                       color: AppColors.azul,
                     )),

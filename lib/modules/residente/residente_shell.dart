@@ -136,7 +136,7 @@ class _ResidenteShellState extends State<ResidenteShell> {
             onDestinationSelected: (i) => setState(() => _tab = i),
             backgroundColor: Colors.white,
             indicatorColor: AppColors.naranja.withOpacity(0.15),
-            destinations: const [
+            destinations: [
               NavigationDestination(
                 icon: Icon(Icons.home_outlined),
                 selectedIcon: Icon(Icons.home, color: AppColors.azul),
@@ -190,7 +190,7 @@ class _Encabezado extends StatelessWidget {
     final topPadding = MediaQuery.of(context).padding.top;
     return Container(
       padding: EdgeInsets.fromLTRB(18, topPadding + 14, 18, 20),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

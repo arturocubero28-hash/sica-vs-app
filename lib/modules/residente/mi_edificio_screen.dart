@@ -124,7 +124,7 @@ class _MiEdificioScreenState extends State<MiEdificioScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Generar código para inquilino',
+                        Text('Generar código para inquilino',
                             style: TextStyle(
                                 fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
                         const SizedBox(height: 4),
@@ -176,7 +176,7 @@ class _MiEdificioScreenState extends State<MiEdificioScreen> {
 
                     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text('Códigos activos (${activos.length})',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
                       const SizedBox(height: 8),
                       if (activos.isEmpty)
@@ -192,7 +192,7 @@ class _MiEdificioScreenState extends State<MiEdificioScreen> {
                       if (usados.isNotEmpty) ...[
                         const SizedBox(height: 20),
                         Text('Historial de enrolamiento (${usados.length})',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
                         const SizedBox(height: 8),
                         Card(
@@ -209,7 +209,7 @@ class _MiEdificioScreenState extends State<MiEdificioScreen> {
                       if (_apartamentos.isNotEmpty) ...[
                         const SizedBox(height: 20),
                         Text('Apartamentos del edificio (${_apartamentos.length})',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
                         const SizedBox(height: 8),
                         ...(_apartamentos.map((a) {
@@ -472,7 +472,7 @@ class _DetalleAptoSheetState extends State<_DetalleAptoSheet> {
           if (_solicitada) ...[
             const Icon(Icons.check_circle, size: 48, color: AppColors.verde),
             const SizedBox(height: 12),
-            const Text('Solicitud enviada',
+            Text('Solicitud enviada',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.azul)),
             const SizedBox(height: 8),
             const Text('La administración revisará tu solicitud y procederá con la baja.',
@@ -541,7 +541,7 @@ class _DetalleAptoSheetState extends State<_DetalleAptoSheet> {
               ),
             ] else ...[
               // ── Formulario de solicitud de baja ──
-              const Text('Solicitar dar de baja',
+              Text('Solicitar dar de baja',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.azul)),
               const SizedBox(height: 4),
               const Text('La administración revisará tu solicitud y procederá.',

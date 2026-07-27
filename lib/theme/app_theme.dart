@@ -112,7 +112,7 @@ class AppTheme {
     ),
     scaffoldBackgroundColor: AppColors.grisCl,
     fontFamily: 'Roboto',
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       backgroundColor: AppColors.azul,
       foregroundColor: Colors.white,
       elevation: 0,

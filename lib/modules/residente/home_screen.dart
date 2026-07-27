@@ -124,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(children: [
             Icon(Icons.campaign_rounded, color: AppColors.naranja, size: 20),
             const SizedBox(width: 8),
-            const Text('Comunicados',
+            Text('Comunicados',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.azul)),
           ]),
           const SizedBox(height: 2),
@@ -172,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: AppColors.borde, borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: 16),
             Text(com['titulo']?.toString() ?? '',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 19, fontWeight: FontWeight.w800, color: AppColors.azul)),
             const SizedBox(height: 6),
             if ((com['created_at'] ?? com['creado_en']) != null)
@@ -236,7 +236,7 @@ class _ComunicadoCard extends StatelessWidget {
                 const SizedBox(width: 14),
               ],
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(titulo, style: const TextStyle(
+                Text(titulo, style: TextStyle(
                     fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
                 const SizedBox(height: 4),
                 Text(cuerpo, maxLines: 2, overflow: TextOverflow.ellipsis,

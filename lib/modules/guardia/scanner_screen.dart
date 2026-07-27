@@ -290,7 +290,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text('¿Qué querés abrir?',
+            Text('¿Qué querés abrir?',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.azul)),
             const SizedBox(height: 4),
             const Text('Se registrará con tu nombre, hora y este punto de acceso',

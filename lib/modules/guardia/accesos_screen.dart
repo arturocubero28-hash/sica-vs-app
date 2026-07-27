@@ -98,7 +98,7 @@ class _AccesoCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(nombre, style: const TextStyle(
+            Text(nombre, style: TextStyle(
                 fontWeight: FontWeight.w700, color: AppColors.azul, fontSize: 14)),
             Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
               if (unidad.isNotEmpty) ...[

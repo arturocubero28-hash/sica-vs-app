@@ -106,7 +106,7 @@ class _MasScreenState extends State<MasScreen> {
                 const SizedBox(width: 14),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(unidad.isNotEmpty ? unidad : 'Mi cuenta',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.azul)),
                   Text(residente?['rol_cuenta']?.toString() == 'titular'
                       ? 'Titular de la cuenta' : 'Miembro',
@@ -157,7 +157,7 @@ class _MasScreenState extends State<MasScreen> {
                 ),
                 child: const Icon(Icons.fingerprint, color: AppColors.verde, size: 22),
               ),
-              title: const Text('Bloquear con huella',
+              title: Text('Bloquear con huella',
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
               subtitle: const Text('Pedir tu huella al abrir la app',
                   style: TextStyle(fontSize: 12, color: AppColors.gris)),
@@ -219,7 +219,7 @@ class _OpcionTile extends StatelessWidget {
         ),
         child: Icon(icono, color: color, size: 22),
       ),
-      title: Text(titulo, style: const TextStyle(
+      title: Text(titulo, style: TextStyle(
           fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
       subtitle: subtitulo.isNotEmpty
           ? Text(subtitulo, style: const TextStyle(fontSize: 12, color: AppColors.gris))

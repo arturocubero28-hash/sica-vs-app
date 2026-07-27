@@ -246,7 +246,7 @@ class _VisitaCard extends StatelessWidget {
             Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(nombre, style: const TextStyle(
+                Text(nombre, style: TextStyle(
                     fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
                 const SizedBox(height: 3),
                 Wrap(spacing: 6, runSpacing: 4, children: [
@@ -409,7 +409,7 @@ class _TarjetaQrPanelState extends State<_TarjetaQrPanel> {
         Container(width: 40, height: 4, decoration: BoxDecoration(
             color: AppColors.borde, borderRadius: BorderRadius.circular(2))),
         const SizedBox(height: 16),
-        Text(nombre, style: const TextStyle(
+        Text(nombre, style: TextStyle(
             fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.azul)),
         const SizedBox(height: 16),
 
@@ -564,7 +564,7 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
           Container(width: 40, height: 4, decoration: BoxDecoration(
               color: AppColors.borde, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 16),
-          const Text('Nuevo código QR', style: TextStyle(
+          Text('Nuevo código QR', style: TextStyle(
               fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.azul)),
           const SizedBox(height: 18),
 
@@ -730,7 +730,7 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
           const SizedBox(height: 8),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Llega en vehículo',
+            title: Text('Llega en vehículo',
                 style: TextStyle(fontSize: 14, color: AppColors.azul)),
             subtitle: const Text('El guardia le pedirá el número de placa al entrar',
                 style: TextStyle(fontSize: 11.5, color: AppColors.gris)),
@@ -906,7 +906,7 @@ class _CodigoDeliveryPanelState extends State<_CodigoDeliveryPanel> {
               const Text('CÓDIGO DE ACCESO', style: TextStyle(
                   fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.gris, letterSpacing: 1)),
               const SizedBox(height: 8),
-              Text(codigo, style: const TextStyle(
+              Text(codigo, style: TextStyle(
                   fontSize: 40, fontWeight: FontWeight.w900, color: AppColors.azul, letterSpacing: 4)),
             ]),
           ),

@@ -149,7 +149,7 @@ class _SeleccionarPuntoScreenState extends State<SeleccionarPuntoScreen> {
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                        Text(nombre, style: const TextStyle(
+                                        Text(nombre, style: TextStyle(
                                             fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
                                         const SizedBox(height: 4),
                                         Wrap(spacing: 6, runSpacing: 4, children: tags.map((t) => Container(
