@@ -40,6 +40,16 @@ class ResidencialCache {
     }
   }
 
+  /// Limpia el nombre/logo EN MEMORIA (no borra los archivos ya descargados
+  /// en disco — esos quedan cacheados para la próxima vez que se use esa
+  /// residencial). Se llama al cerrar sesión, para que si otra cuenta inicia
+  /// sesión enseguida, ninguna pantalla en transición pueda mostrar por un
+  /// instante el nombre/logo de la cuenta que se acaba de ir.
+  static void clear() {
+    _nombre = null;
+    _logoArchivo = null;
+  }
+
   /// Ruta local del logo de ESTE archivo remoto en particular. Se incluye el
   /// nombre del archivo del servidor para que, si el dispositivo se usa con
   /// distintas cuentas/residenciales (como en pruebas), cada logo tenga su
@@ -150,6 +160,7 @@ class AuthStorage {
     } catch (_) {
       // Sin conexión o token ya inválido — no bloquear el logout local
     }
+    ResidencialCache.clear();
     await limpiar();
   }
 }

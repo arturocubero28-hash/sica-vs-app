@@ -321,8 +321,8 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
       ),
       const SizedBox(width: 8),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(ResidencialCache.nombre.toUpperCase(), style: const TextStyle(
-            fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.azul)),
+        Text(ResidencialCache.nombre.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.azul)),
         if (nombre.isNotEmpty)
           Text(nombre, maxLines: 1, overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 10, color: AppColors.gris)),

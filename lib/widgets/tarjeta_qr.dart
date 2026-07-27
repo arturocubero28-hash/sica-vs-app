@@ -100,19 +100,37 @@ class TarjetaQR extends StatelessWidget {
               padding: const EdgeInsets.all(6),
               decoration: const BoxDecoration(
                 color: Colors.white, shape: BoxShape.circle),
-              child: const LogoResidencial(size: 62),
+              // ClipOval + BoxFit.cover (vía LogoResidencial fit): recorta
+              // el logo en círculo perfecto sin importar su proporción
+              // original — antes con BoxFit.contain un logo no cuadrado
+              // quedaba descentrado o con espacios en blanco raros.
+              child: const ClipOval(
+                child: LogoResidencial(size: 62, fit: BoxFit.cover),
+              ),
             ),
             const SizedBox(width: 22),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('RESIDENCIAL', style: TextStyle(
-                    fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white)),
-                const SizedBox(height: 6),
-                Text(ResidencialCache.nombre.toUpperCase(), style: const TextStyle(
-                    fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white)),
-              ],
+            // Expanded: sin esto, un nombre de residencial largo no tenía
+            // límite de ancho dentro del Row y desbordaba el marco fijo de
+            // la tarjeta (600px), rompiendo la captura de la imagen.
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('RESIDENCIAL', style: TextStyle(
+                      fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white)),
+                  const SizedBox(height: 6),
+                  // FittedBox reduce el tamaño de fuente automáticamente si
+                  // el nombre es muy largo, en vez de desbordar o cortar
+                  // texto a la mitad.
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(ResidencialCache.nombre.toUpperCase(), style: const TextStyle(
+                        fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white)),
+                  ),
+                ],
+              ),
             ),
           ]),
         ),
@@ -295,7 +313,17 @@ class LogoResidencial extends StatelessWidget {
         }
         final archivoLocal = snapLocal.data;
         if (archivoLocal != null) {
-          return Image.file(archivoLocal, fit: fit, errorBuilder: (_, __, ___) => respaldo);
+          // key única por ruta de archivo: obliga a Flutter a tratar el
+          // logo de cada residencial como un elemento visual nuevo, sin
+          // posibilidad de mezclar el render de un logo anterior con el
+          // actual durante una transición de pantalla (ej. al cambiar de
+          // cuenta sin recompilar la app).
+          return Image.file(
+            archivoLocal,
+            key: ValueKey(archivoLocal.path),
+            fit: fit,
+            errorBuilder: (_, __, ___) => respaldo,
+          );
         }
 
         // Respaldo: todavía no está en disco (raro, pero posible) — se pide
