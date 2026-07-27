@@ -122,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           // Encabezado
           Row(children: [
-            const Icon(Icons.campaign_rounded, color: AppColors.naranja, size: 20),
+            Icon(Icons.campaign_rounded, color: AppColors.naranja, size: 20),
             const SizedBox(width: 8),
             const Text('Comunicados',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.azul)),
@@ -231,7 +231,7 @@ class _ComunicadoCard extends StatelessWidget {
                     color: AppColors.naranja.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.campaign, color: AppColors.naranja, size: 24),
+                  child: Icon(Icons.campaign, color: AppColors.naranja, size: 24),
                 ),
                 const SizedBox(width: 14),
               ],

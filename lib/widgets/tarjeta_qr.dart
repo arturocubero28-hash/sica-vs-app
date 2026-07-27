@@ -272,7 +272,7 @@ class QrImageViewWidget extends StatelessWidget {
     padding: EdgeInsets.zero,
     errorCorrectionLevel: QrErrorCorrectLevel.H,
     backgroundColor: Colors.white,
-    eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: AppColors.azul),
+    eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.square, color: AppColors.azul),
     dataModuleStyle: const QrDataModuleStyle(
         dataModuleShape: QrDataModuleShape.circle, color: AppColors.azul),
   );
@@ -291,19 +291,25 @@ class QrImageViewWidget extends StatelessWidget {
 /// ícono de respaldo — nunca un logo de otra residencial ni un hueco vacío.
 class LogoResidencial extends StatelessWidget {
   final double size;
-  final Color colorRespaldo;
+  // Día 47: nullable en vez de tener AppColors.azul como valor por defecto
+  // del constructor — ese valor ya no es una constante de compilación
+  // (puede cambiar en tiempo de ejecución), así que el constructor no
+  // puede seguir siendo const con ese default. El color efectivo se
+  // resuelve en build(), leyendo AppColors.azul en ese momento (el color
+  // VIGENTE, no el que había cuando se construyó el widget).
+  final Color? colorRespaldo;
   final BoxFit fit;
 
   const LogoResidencial({
     super.key,
     this.size = 48,
-    this.colorRespaldo = AppColors.azul,
+    this.colorRespaldo,
     this.fit = BoxFit.contain,
   });
 
   @override
   Widget build(BuildContext context) {
-    final respaldo = Icon(Icons.shield, color: colorRespaldo, size: size);
+    final respaldo = Icon(Icons.shield, color: colorRespaldo ?? AppColors.azul, size: size);
 
     return FutureBuilder<File?>(
       future: ResidencialCache.logoLocal(),

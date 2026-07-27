@@ -399,7 +399,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       )),
       if (_procesando)
         Container(color: Colors.black54,
-            child: const Center(child: CircularProgressIndicator(color: AppColors.naranja))),
+            child: Center(child: CircularProgressIndicator(color: AppColors.naranja))),
       if (_error != null)
         Positioned(top: 84, left: 16, right: 16,
           child: Container(
@@ -470,9 +470,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
             border: Border.all(color: AppColors.azul.withOpacity(0.3)),
           ),
           child: Row(children: [
-            const Icon(Icons.info_outline, color: AppColors.azul, size: 20),
+            Icon(Icons.info_outline, color: AppColors.azul, size: 20),
             const SizedBox(width: 10),
-            Expanded(child: Text(_mensajeValidacion!, style: const TextStyle(color: AppColors.azul, fontSize: 13))),
+            Expanded(child: Text(_mensajeValidacion!, style: TextStyle(color: AppColors.azul, fontSize: 13))),
           ]),
         ),
       if (_cuentaBloqueada)
@@ -504,7 +504,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             ),
             const SizedBox(width: 14),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(nombre, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.azul)),
+              Text(nombre, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.azul)),
               Text('Tipo: $tipo', style: const TextStyle(fontSize: 13, color: AppColors.gris)),
             ])),
           ]),
@@ -541,7 +541,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       ]),
       const SizedBox(height: 14),
       if (_direccion == 'entrada') ...[
-        const Text('Fotos de registro', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
+        Text('Fotos de registro', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
         const SizedBox(height: 8),
         _FotoBoton(label: 'Foto de identidad *', tomada: _fotoId != null, onTap: () => _tomarFoto('id')),
         if (_visita?['en_vehiculo'] == true) ...[
@@ -598,7 +598,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
         const SizedBox(height: 20),
         Text(_resultado, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.verde)),
         const SizedBox(height: 6),
-        Text(_visita?['nombre_visitante']?.toString() ?? '', style: const TextStyle(fontSize: 16, color: AppColors.azul)),
+        Text(_visita?['nombre_visitante']?.toString() ?? '', style: TextStyle(fontSize: 16, color: AppColors.azul)),
         const SizedBox(height: 32),
         SizedBox(width: double.infinity, child: ElevatedButton.icon(
           onPressed: _reiniciar,
@@ -620,7 +620,7 @@ class _DatoFila extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: 6),
     child: Row(children: [
       SizedBox(width: 120, child: Text(label, style: const TextStyle(fontSize: 13, color: AppColors.gris))),
-      Expanded(child: Text(valor, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.azul))),
+      Expanded(child: Text(valor, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.azul))),
     ]),
   );
 }
@@ -645,7 +645,7 @@ class _FotoBoton extends StatelessWidget {
         child: Icon(tomada ? Icons.check : Icons.camera_alt,
             color: tomada ? AppColors.verde : AppColors.naranja, size: 22),
       ),
-      title: Text(label, style: const TextStyle(fontSize: 14, color: AppColors.azul)),
+      title: Text(label, style: TextStyle(fontSize: 14, color: AppColors.azul)),
       trailing: Text(tomada ? 'Tomada ✓' : 'Tomar',
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: tomada ? AppColors.verde : AppColors.naranja)),
       onTap: onTap,

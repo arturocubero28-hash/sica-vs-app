@@ -27,8 +27,32 @@ void main() async {
   runApp(const SicaVsApp());
 }
 
-class SicaVsApp extends StatelessWidget {
+class SicaVsApp extends StatefulWidget {
   const SicaVsApp({super.key});
+
+  @override
+  State<SicaVsApp> createState() => _SicaVsAppState();
+}
+
+/// Día 47 — colores personalizables: StatefulWidget en vez de Stateless para
+/// poder escuchar AppColors.notifier y reconstruir MaterialApp cuando el
+/// admin (o la carga inicial de sesión) cambia los colores. Sin esto, aunque
+/// AppColors.azul cambiara de valor, los widgets ya dibujados no se
+/// enterarían — Flutter solo redibuja lo que setState() marca como sucio.
+class _SicaVsAppState extends State<SicaVsApp> {
+  @override
+  void initState() {
+    super.initState();
+    AppColors.notifier.addListener(_onColoresCambiaron);
+  }
+
+  @override
+  void dispose() {
+    AppColors.notifier.removeListener(_onColoresCambiaron);
+    super.dispose();
+  }
+
+  void _onColoresCambiaron() => setState(() {});
 
   @override
   Widget build(BuildContext context) {

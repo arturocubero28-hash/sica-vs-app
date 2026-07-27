@@ -101,7 +101,7 @@ class _MasScreenState extends State<MasScreen> {
                     color: AppColors.azul.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Icon(Icons.home, color: AppColors.azul, size: 26),
+                  child: Icon(Icons.home, color: AppColors.azul, size: 26),
                 ),
                 const SizedBox(width: 14),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

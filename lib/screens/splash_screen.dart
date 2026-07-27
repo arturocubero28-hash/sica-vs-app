@@ -104,7 +104,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.azul,
+      backgroundColor: AppColors.azulDeFabrica,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -121,7 +121,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 'assets/images/logo.png',
                 fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.shield, color: AppColors.naranja, size: 60),
+                    const Icon(Icons.shield, color: AppColors.naranjaDeFabrica, size: 60),
               ),
             ),
             const SizedBox(height: 24),
@@ -161,7 +161,7 @@ class _SplashScreenState extends State<SplashScreen> {
               const SizedBox(
                 width: 24, height: 24,
                 child: CircularProgressIndicator(
-                    color: AppColors.naranja, strokeWidth: 2.5),
+                    color: AppColors.naranjaDeFabrica, strokeWidth: 2.5),
               ),
           ],
         ),

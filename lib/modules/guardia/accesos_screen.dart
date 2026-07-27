@@ -121,7 +121,7 @@ class _AccesoCard extends StatelessWidget {
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             if (hora != null)
               Text(_fmtHora.format(hora.toLocal()),
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.azul, fontSize: 15)),
+                  style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.azul, fontSize: 15)),
             if (hora != null)
               Text(_fmtFecha.format(hora.toLocal()),
                   style: const TextStyle(fontSize: 11, color: AppColors.gris)),

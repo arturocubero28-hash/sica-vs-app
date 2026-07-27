@@ -121,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.azul,
+      backgroundColor: AppColors.azulDeFabrica,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -140,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     'assets/images/logo.png',
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) =>
-                        const Icon(Icons.shield, color: AppColors.naranja, size: 48),
+                        const Icon(Icons.shield, color: AppColors.naranjaDeFabrica, size: 48),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -172,7 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const Text('Iniciar sesión',
                           style: TextStyle(
                             fontSize: 20, fontWeight: FontWeight.w700,
-                            color: AppColors.azul,
+                            color: AppColors.azulDeFabrica,
                           )),
                       const SizedBox(height: 20),
 
@@ -215,7 +215,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           child: const Text('¿Olvidaste tu contraseña?',
-                              style: TextStyle(fontSize: 13, color: AppColors.naranja)),
+                              style: TextStyle(fontSize: 13, color: AppColors.naranjaDeFabrica)),
                         ),
                       ),
 
@@ -351,10 +351,10 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
               color: AppColors.borde, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 16),
           Icon(_completado ? Icons.check_circle : Icons.lock_reset,
-              size: 40, color: _completado ? AppColors.verde : AppColors.azul),
+              size: 40, color: _completado ? AppColors.verde : AppColors.azulDeFabrica),
           const SizedBox(height: 10),
           Text(_completado ? '¡Contraseña restablecida!' : 'Recuperar contraseña',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.azul)),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.azulDeFabrica)),
           const SizedBox(height: 16),
 
           if (_completado) ...[

@@ -255,7 +255,7 @@ class _VisitaCard extends StatelessWidget {
                     label: activa ? 'Activa' : estado,
                     color: activa ? AppColors.verde : AppColors.gris,
                   ),
-                  if (enVehiculo) const _MiniChip(label: 'Vehículo', color: AppColors.azul2),
+                  if (enVehiculo) _MiniChip(label: 'Vehículo', color: AppColors.azul2),
                   if (empresa != null) _MiniChip(label: empresa, color: AppColors.amber),
                 ]),
                 if (validoHasta != null)
@@ -276,16 +276,16 @@ class _VisitaCard extends StatelessWidget {
                         const SizedBox(width: 10),
                       ],
                       if (horaSalida != null) ...[
-                        const Icon(Icons.logout, size: 13, color: AppColors.azul),
+                        Icon(Icons.logout, size: 13, color: AppColors.azul),
                         const SizedBox(width: 3),
                         Text(_fmtHora.format(horaSalida.toLocal()),
-                            style: const TextStyle(fontSize: 11, color: AppColors.azul, fontWeight: FontWeight.w600)),
+                            style: TextStyle(fontSize: 11, color: AppColors.azul, fontWeight: FontWeight.w600)),
                       ],
                     ]),
                   ),
               ],
             )),
-            const Icon(Icons.qr_code_2, color: AppColors.azul, size: 28),
+            Icon(Icons.qr_code_2, color: AppColors.azul, size: 28),
           ]),
         ),
       ),
@@ -587,7 +587,7 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
                         showDialog(
                           context: context,
                           builder: (_) => AlertDialog(
-                            icon: const Icon(Icons.lock_outline, color: AppColors.azul, size: 32),
+                            icon: Icon(Icons.lock_outline, color: AppColors.azul, size: 32),
                             title: const Text('QR recurrente no habilitado'),
                             content: Text(
                               'Los QR recurrentes no están habilitados para tu cuenta. '
@@ -886,7 +886,7 @@ class _CodigoDeliveryPanelState extends State<_CodigoDeliveryPanel> {
             ),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(nombre, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.azul)),
+              Text(nombre, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.azul)),
               if (empresa != null && empresa.isNotEmpty)
                 Text(empresa, style: const TextStyle(fontSize: 12, color: AppColors.gris)),
             ])),

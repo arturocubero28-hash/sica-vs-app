@@ -38,7 +38,7 @@ Future<ImageSource?> _elegirFuente(BuildContext context) {
             decoration: BoxDecoration(
                 color: AppColors.naranja.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.camera_alt, color: AppColors.naranja),
+            child: Icon(Icons.camera_alt, color: AppColors.naranja),
           ),
           title: const Text('Tomar foto'),
           subtitle: const Text('Usá la cámara del teléfono'),
@@ -50,7 +50,7 @@ Future<ImageSource?> _elegirFuente(BuildContext context) {
             decoration: BoxDecoration(
                 color: AppColors.azul.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.photo_library, color: AppColors.azul),
+            child: Icon(Icons.photo_library, color: AppColors.azul),
           ),
           title: const Text('Elegir de la galería'),
           subtitle: const Text('Seleccioná una imagen guardada'),
@@ -233,14 +233,14 @@ class _CuotaCard extends StatelessWidget {
           Row(children: [
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Cuota $periodo',
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
               if (vencimiento != null)
                 Text('Vence: ${_fmtFecha.format(vencimiento)}',
                     style: const TextStyle(fontSize: 12, color: AppColors.gris)),
             ])),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text(_fmt.format(monto),
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: AppColors.azul)),
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: AppColors.azul)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -346,17 +346,17 @@ class _AbonoCard extends StatelessWidget {
               width: 36, height: 36,
               decoration: BoxDecoration(color: AppColors.azul.withOpacity(0.1), shape: BoxShape.circle),
               child: Center(child: Text('$numero',
-                  style: const TextStyle(color: AppColors.azul, fontWeight: FontWeight.w800))),
+                  style: TextStyle(color: AppColors.azul, fontWeight: FontWeight.w800))),
             ),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Abono #$numero', style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.azul)),
+              Text('Abono #$numero', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.azul)),
               if (fecha != null)
                 Text('Vence: ${_fmtFecha.format(fecha)}',
                     style: const TextStyle(fontSize: 12, color: AppColors.gris)),
             ])),
             Text(_fmt.format(monto),
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.azul)),
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.azul)),
           ]),
           if (!enRevision) ...[
             const SizedBox(height: 12),

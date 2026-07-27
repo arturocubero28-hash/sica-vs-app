@@ -353,7 +353,7 @@ class _CodigoCard extends StatelessWidget {
           ])),
           if (!usado) ...[
             IconButton(
-              icon: const Icon(Icons.copy, size: 20, color: AppColors.azul),
+              icon: Icon(Icons.copy, size: 20, color: AppColors.azul),
               tooltip: 'Copiar',
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: cod));
@@ -494,12 +494,12 @@ class _DetalleAptoSheetState extends State<_DetalleAptoSheet> {
                   color: AppColors.naranja.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(Icons.door_front_door, color: AppColors.naranja, size: 26),
+                child: Icon(Icons.door_front_door, color: AppColors.naranja, size: 26),
               ),
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Apartamento $apto',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.azul)),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.azul)),
                 Text(nombre, style: const TextStyle(fontSize: 13, color: AppColors.gris)),
               ])),
               Container(

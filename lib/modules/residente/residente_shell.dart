@@ -253,7 +253,7 @@ class _Encabezado extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.home_rounded, color: AppColors.naranja, size: 15),
+                Icon(Icons.home_rounded, color: AppColors.naranja, size: 15),
                 const SizedBox(width: 7),
                 Text(unidad!, style: const TextStyle(
                     fontSize: 12.5, color: Colors.white, fontWeight: FontWeight.w600)),

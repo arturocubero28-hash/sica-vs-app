@@ -87,7 +87,7 @@ class _GuardiaShellState extends State<GuardiaShell> {
     return Scaffold(
       appBar: AppBar(
         title: Row(children: [
-          const Icon(Icons.shield, color: AppColors.naranja, size: 22),
+          Icon(Icons.shield, color: AppColors.naranja, size: 22),
           const SizedBox(width: 8),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('SICA-VS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
@@ -124,7 +124,7 @@ class _GuardiaShellState extends State<GuardiaShell> {
         onDestinationSelected: (i) => setState(() => _tab = i),
         backgroundColor: Colors.white,
         indicatorColor: AppColors.azul.withOpacity(0.12),
-        destinations: const [
+        destinations: [
           NavigationDestination(
             icon: Icon(Icons.qr_code_scanner_outlined),
             selectedIcon: Icon(Icons.qr_code_scanner, color: AppColors.azul),

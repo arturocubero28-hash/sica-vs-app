@@ -81,7 +81,7 @@ class _SeleccionarPuntoScreenState extends State<SeleccionarPuntoScreen> {
                   borderRadius: BorderRadius.circular(24),
                 ),
                 padding: const EdgeInsets.all(12),
-                child: const LogoResidencial(size: 48, colorRespaldo: AppColors.naranja),
+                child: LogoResidencial(size: 48, colorRespaldo: AppColors.naranja),
               ),
               const SizedBox(height: 20),
               Text(

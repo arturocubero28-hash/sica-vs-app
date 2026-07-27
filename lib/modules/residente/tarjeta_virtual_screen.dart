@@ -84,7 +84,7 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.azul)),
           ),
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.azul),
+            icon: Icon(Icons.refresh, color: AppColors.azul),
             onPressed: _cargarTodo,
             tooltip: 'Actualizar',
           ),
@@ -244,7 +244,7 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
           const SizedBox(height: 16),
           Text(
             bleAccesoFisicoListo ? 'Acceso Bluetooth activo' : 'Credencial Bluetooth vinculada',
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.azul),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.azul),
           ),
           const SizedBox(height: 4),
           Text(
@@ -302,7 +302,7 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
         decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFB5D4F4)),
         child: Center(child: Container(
           width: 56, height: 56,
-          decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.azul),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.azul),
           child: const Icon(Icons.bluetooth, color: Colors.white, size: 28),
         )),
       )),
@@ -315,14 +315,14 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
     return Row(children: [
       Container(
         width: 30, height: 30,
-        decoration: const BoxDecoration(color: AppColors.azul, shape: BoxShape.circle),
+        decoration: BoxDecoration(color: AppColors.azul, shape: BoxShape.circle),
         child: Padding(padding: const EdgeInsets.all(5),
           child: LogoResidencial(size: 18, colorRespaldo: Colors.white)),
       ),
       const SizedBox(width: 8),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(ResidencialCache.nombre.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.azul)),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.azul)),
         if (nombre.isNotEmpty)
           Text(nombre, maxLines: 1, overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 10, color: AppColors.gris)),
@@ -352,7 +352,7 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
         Icon(icono, size: 56, color: AppColors.gris.withOpacity(0.5)),
         const SizedBox(height: 16),
         Text(titulo, textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.azul)),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.azul)),
         const SizedBox(height: 8),
         Text(descripcion, textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 13, color: AppColors.gris, height: 1.4)),
@@ -381,7 +381,7 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
             size: 56, color: esReemplazo ? AppColors.amber : AppColors.gris.withOpacity(0.5)),
         const SizedBox(height: 16),
         Text(titulo, textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.azul)),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.azul)),
         const SizedBox(height: 8),
         Text(descripcion, textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 13, color: AppColors.gris, height: 1.4)),
