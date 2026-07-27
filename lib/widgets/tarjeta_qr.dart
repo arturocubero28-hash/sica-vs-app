@@ -363,9 +363,11 @@ Future<Uint8List?> capturarTarjetaComoPng(GlobalKey key, {double escala = 2.0}) 
     // segundo plano la primera vez que el dispositivo la necesita. Si se
     // captura la imagen antes de que termine, saldría con la fuente de
     // respaldo del sistema en vez de Inter — GoogleFonts.pendingFonts()
-    // espera exactamente a eso. Después de la primera vez queda cacheada
-    // localmente y esta espera es prácticamente instantánea.
-    await Future.wait(GoogleFonts.pendingFonts());
+    // ya es un Future (resuelve en List<void> cuando todas las descargas
+    // pendientes terminan), no una lista de futuros para envolver en
+    // Future.wait. Después de la primera vez, con la fuente ya cacheada
+    // localmente, esta espera es prácticamente instantánea.
+    await GoogleFonts.pendingFonts();
 
     final image = await boundary.toImage(pixelRatio: escala);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
