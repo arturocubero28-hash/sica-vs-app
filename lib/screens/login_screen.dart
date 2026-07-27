@@ -62,6 +62,13 @@ class _LoginScreenState extends State<LoginScreen> {
         logoArchivo: r?['logo_archivo'] as String?,
       );
       ResidencialCache.asegurarLogoDescargado(); // no bloquea; queda en disco para siempre
+      // Día 47 — colores personalizables: se aplican apenas llegan, junto
+      // con nombre/logo. AppColors.actualizar valida el formato e ignora
+      // valores mal formados en silencio.
+      AppColors.actualizar(
+        primario: r?['color_primario'] as String?,
+        secundario: r?['color_secundario'] as String?,
+      );
     }).catchError((_) {});
   }
 
