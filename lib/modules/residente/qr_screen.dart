@@ -424,14 +424,19 @@ class _TarjetaQrPanelState extends State<_TarjetaQrPanel> {
                 style: TextStyle(color: AppColors.gris))),
           )
         else
-          // La tarjeta se pinta a tamaño real (600×880) y se escala para
-          // que quepa en pantalla. RepaintBoundary la captura a resolución
-          // completa cuando el usuario comparte.
+          // La tarjeta se pinta a tamaño real (780×variable, según cuántos
+          // detalles tenga la visita — Día 47) y se escala para que quepa
+          // en pantalla. RepaintBoundary la captura a resolución completa
+          // cuando el usuario comparte. El alto de esta caja de vista
+          // previa usa una proporción conservadora (pensada para el caso
+          // con más líneas de detalle) — si una visita tiene menos datos,
+          // BoxFit.contain la muestra completa con un margen extra arriba/
+          // abajo, en vez de recortarla.
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: SizedBox(
               width: 280,
-              height: 280 * (880 / 600),
+              height: 280 * (1200 / 780),
               child: FittedBox(
                 fit: BoxFit.contain,
                 child: TarjetaQR(

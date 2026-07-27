@@ -26,12 +26,11 @@ import '../api/client.dart';
 /// sin necesidad de volver a pedirle nada al backend.
 
 const double kAnchoTarjeta = 780;
-// Día 47: se sube de 1010 a 1280 — con los 4 campos de detalle nuevos
-// (hasta 7 líneas posibles a la vez), 1010 se quedaba corto y el texto
-// se salía de su espacio, montándose sobre la fila de íconos de abajo
-// (el problema que reportó el usuario). Con margen de sobra, en vez de
-// calcular al límite otra vez.
-const double kAltoTarjeta = 1280;
+// Día 47: la tarjeta principal ya NO usa esta constante — mide lo que
+// necesita su contenido real (ver el comentario en el Container
+// principal). Queda solo para el tamaño de _placeholderError(), la
+// pantalla simple que se muestra si el QR no se pudo generar.
+const double kAltoTarjeta = 900;
 
 class TarjetaQR extends StatelessWidget {
   final Map<String, dynamic> visita;
@@ -95,9 +94,18 @@ class TarjetaQR extends StatelessWidget {
 
     final tarjeta = Container(
       width: kAnchoTarjeta,
-      height: kAltoTarjeta,
+      // Día 47, a pedido del usuario: la tarjeta deja de tener un alto
+      // fijo. Con un alto fijo (probado en 1010 y después en 1280 para
+      // el peor caso de 7 líneas de detalle), una visita con pocos datos
+      // dejaba un hueco en blanco enorme antes de llegar a los íconos —
+      // el Expanded de los detalles "absorbía" ese sobrante sin usarlo.
+      // Ahora la tarjeta mide exactamente lo que necesita su contenido
+      // real: pocos detalles → tarjeta más baja; muchos → más alta. La
+      // captura para compartir (capturarTarjetaComoPng) ya usaba el
+      // tamaño renderizado real, no un valor fijo, así que no depende de
+      // esto.
       color: Colors.white,
-      child: Column(children: [
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
         // ── Encabezado con degradado naranja (color secundario) ──
         Container(
           height: 175,
@@ -200,7 +208,10 @@ class TarjetaQR extends StatelessWidget {
               return QrImageView(
                 data: token,
                 version: QrVersions.auto,
-                size: 320,
+                // Día 47, a pedido del usuario: el QR ocupa más espacio en
+                // la tarjeta (320→420, la tarjeta ya es más ancha —780px—
+                // desde el pedido de agrandar los íconos).
+                size: 420,
                 padding: EdgeInsets.zero,
                 errorCorrectionLevel: QrErrorCorrectLevel.H,
                 backgroundColor: Colors.white,
@@ -210,7 +221,7 @@ class TarjetaQR extends StatelessWidget {
                   dataModuleShape: QrDataModuleShape.circle, color: AppColors.azul),
                 embeddedImage: logo != null ? FileImage(logo) : null,
                 embeddedImageStyle: logo != null
-                    ? const QrEmbeddedImageStyle(size: Size(52, 52))
+                    ? const QrEmbeddedImageStyle(size: Size(68, 68))
                     : null,
               );
             },
@@ -253,29 +264,31 @@ class TarjetaQR extends StatelessWidget {
         const SizedBox(height: 14),
 
         // ── Detalles opcionales ──
-        // Expanded absorbe el espacio sobrante y centra los detalles.
-        // No lleva Spacer() al lado: dos widgets flexibles compitiendo por el
-        // mismo espacio dejaban a los detalles con altura cero.
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                // Día 47: orden pensado como lo pediría un guardia leyendo
-                // de arriba a abajo — primero quién y por quién, después
-                // vigencia, y al final los datos de contacto/vehículo.
-                if (_generadaPor != null) _detalle('Invita: $_generadaPor', icono: Icons.person_outline),
-                if (_direccion != null) _detalle('Dirección: $_direccion', icono: Icons.home_outlined),
-                if (_creado != null) _detalle('Creado: $_creado', icono: Icons.event_outlined),
-                if (_validoHasta != null) _detalle('Válido hasta: $_validoHasta', icono: Icons.calendar_today_outlined),
-                if (_codigoNumerico != null) _detalle('Código: $_codigoNumerico', icono: Icons.pin_outlined),
-                if (_placa != null) _detalle('Vehículo: $_placa', icono: Icons.directions_car_outlined),
-                if (_empresa != null) _detalle('Empresa: $_empresa', icono: Icons.apartment_outlined),
-              ],
-            ),
+        // Día 47: antes iba en un Expanded (para que un alto de tarjeta
+        // FIJO se repartiera entre los detalles); ahora la tarjeta mide lo
+        // que necesita su contenido, así que esto es una Padding común —
+        // ocupa solo lo que sus líneas realmente necesitan, ni más ni
+        // menos, sin dejar hueco en blanco cuando hay pocos datos.
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Día 47: orden pensado como lo pediría un guardia leyendo
+              // de arriba a abajo — primero quién y por quién, después
+              // vigencia, y al final los datos de contacto/vehículo.
+              if (_generadaPor != null) _detalle('Invita: $_generadaPor', icono: Icons.person_outline),
+              if (_direccion != null) _detalle('Dirección: $_direccion', icono: Icons.home_outlined),
+              if (_creado != null) _detalle('Creado: $_creado', icono: Icons.event_outlined),
+              if (_validoHasta != null) _detalle('Válido hasta: $_validoHasta', icono: Icons.calendar_today_outlined),
+              if (_codigoNumerico != null) _detalle('Código: $_codigoNumerico', icono: Icons.pin_outlined),
+              if (_placa != null) _detalle('Vehículo: $_placa', icono: Icons.directions_car_outlined),
+              if (_empresa != null) _detalle('Empresa: $_empresa', icono: Icons.apartment_outlined),
+            ],
           ),
         ),
+        const SizedBox(height: 24),
 
         // ── Recomendaciones de acceso (Día 47) ──
         // Fila de pictogramas al estilo señalética vial: ícono + 1-2
@@ -322,10 +335,10 @@ class TarjetaQR extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (icono != null) ...[
-          Icon(icono, size: 19, color: AppColors.azul),
+          Icon(icono, size: 21, color: AppColors.azul),
           const SizedBox(width: 6),
         ],
-        Text(texto, style: GoogleFonts.inter(fontSize: 18, color: const Color(0xFF5A5A5A))),
+        Text(texto, style: GoogleFonts.inter(fontSize: 20, color: const Color(0xFF5A5A5A))),
       ],
     ),
   );
