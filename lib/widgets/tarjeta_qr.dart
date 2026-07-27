@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../api/client.dart';
 
@@ -24,7 +25,7 @@ import '../api/client.dart';
 /// Para compartir, `RepaintBoundary` captura el widget ya renderizado a PNG
 /// sin necesidad de volver a pedirle nada al backend.
 
-const double kAnchoTarjeta = 600;
+const double kAnchoTarjeta = 640;
 // Día 47: se sube de 880 a 1010 para sumar la fila de recomendaciones de
 // acceso (íconos) sin apretar el resto del contenido.
 const double kAltoTarjeta = 1010;
@@ -101,6 +102,12 @@ class TarjetaQR extends StatelessWidget {
                     : AppColors.aclarar(AppColors.naranja, 0.4),
               ],
             ),
+            // Día 47, a pedido del usuario: se quita la línea plana de
+            // abajo del encabezado — ahora se curva hacia adentro, mismo
+            // radio que usa el encabezado del residente en el resto de la
+            // app (residente_shell.dart, AppRadius.lg) para que se vea
+            // consistente con el resto del diseño.
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
           ),
           child: Row(children: [
             const SizedBox(width: 12),
@@ -132,8 +139,8 @@ class TarjetaQR extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('RESIDENCIAL', style: TextStyle(
-                      fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white,
+                  Text('RESIDENCIAL', style: GoogleFonts.inter(
+                      fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white,
                       letterSpacing: 1.2)),
                   const SizedBox(height: 6),
                   // FittedBox reduce el tamaño de fuente automáticamente si
@@ -142,8 +149,8 @@ class TarjetaQR extends StatelessWidget {
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
-                    child: Text(ResidencialCache.nombre.toUpperCase(), style: const TextStyle(
-                        fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white)),
+                    child: Text(ResidencialCache.nombre.toUpperCase(), style: GoogleFonts.inter(
+                        fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white)),
                   ),
                 ],
               ),
@@ -208,7 +215,7 @@ class TarjetaQR extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800,
+            style: GoogleFonts.inter(fontSize: 34, fontWeight: FontWeight.w800,
                 color: AppColors.azul, letterSpacing: -0.5),
           ),
         ),
@@ -220,8 +227,8 @@ class TarjetaQR extends StatelessWidget {
             color: AppColors.naranja,
             borderRadius: BorderRadius.circular(18),
           ),
-          child: Text(_tipoTexto, style: const TextStyle(
-              fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white,
+          child: Text(_tipoTexto, style: GoogleFonts.inter(
+              fontSize: 19, fontWeight: FontWeight.w800, color: Colors.white,
               letterSpacing: 0.2)),
         ),
         const SizedBox(height: 14),
@@ -251,7 +258,7 @@ class TarjetaQR extends StatelessWidget {
         // señal de tránsito real: azul = informativo/obligatorio, naranja =
         // cortesía esperada, rojo = prohibición.
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -266,8 +273,8 @@ class TarjetaQR extends StatelessWidget {
         const SizedBox(height: 16),
 
         // ── Pie de página ──
-        const Text('Presente este código al guardia en la entrada',
-            style: TextStyle(fontSize: 14, color: Color(0xFF969696), letterSpacing: 0.1)),
+        Text('Presente este código al guardia en la entrada',
+            style: GoogleFonts.inter(fontSize: 15, color: const Color(0xFF969696), letterSpacing: 0.1)),
         const SizedBox(height: 16),
 
         // ── Franja inferior naranja ──
@@ -289,10 +296,10 @@ class TarjetaQR extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (icono != null) ...[
-          Icon(icono, size: 17, color: AppColors.azul),
+          Icon(icono, size: 19, color: AppColors.azul),
           const SizedBox(width: 6),
         ],
-        Text(texto, style: const TextStyle(fontSize: 17, color: Color(0xFF5A5A5A))),
+        Text(texto, style: GoogleFonts.inter(fontSize: 18, color: const Color(0xFF5A5A5A))),
       ],
     ),
   );
@@ -303,25 +310,28 @@ class TarjetaQR extends StatelessWidget {
   /// comentario donde se arma la fila): azul = informativo, naranja =
   /// cortesía, rojo = prohibición.
   Widget _iconoConsejo(IconData icono, String texto, Color color) {
+    // Día 47, a pedido del usuario: círculo e ícono un 30% más grandes que
+    // la versión original (46→60, 24→31), con la tarjeta ensanchada
+    // (600→640) para que las 5 columnas sigan entrando cómodas.
     return SizedBox(
-      width: 96,
+      width: 116,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 46, height: 46,
+            width: 60, height: 60,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            child: Icon(icono, color: Colors.white, size: 24),
+            child: Icon(icono, color: Colors.white, size: 31),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 7),
           Text(
             texto,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                fontSize: 11.5, fontWeight: FontWeight.w600,
-                color: Color(0xFF6B6B6B), height: 1.25),
+            style: GoogleFonts.inter(
+                fontSize: 13, fontWeight: FontWeight.w600,
+                color: const Color(0xFF6B6B6B), height: 1.25),
           ),
         ],
       ),
@@ -348,6 +358,14 @@ Future<Uint8List?> capturarTarjetaComoPng(GlobalKey key, {double escala = 2.0}) 
   try {
     final boundary = key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
     if (boundary == null) return null;
+
+    // Día 47: la tarjeta usa Inter (google_fonts), que se descarga en
+    // segundo plano la primera vez que el dispositivo la necesita. Si se
+    // captura la imagen antes de que termine, saldría con la fuente de
+    // respaldo del sistema en vez de Inter — GoogleFonts.pendingFonts()
+    // espera exactamente a eso. Después de la primera vez queda cacheada
+    // localmente y esta espera es prácticamente instantánea.
+    await Future.wait(GoogleFonts.pendingFonts());
 
     final image = await boundary.toImage(pixelRatio: escala);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);

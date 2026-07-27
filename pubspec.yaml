@@ -9,6 +9,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Día 47: tipografía moderna para la tarjeta de visita (Inter) — el
+  # paquete la descarga sola la primera vez que el dispositivo la usa (con
+  # conexión), y la deja cacheada localmente después; no requiere archivos
+  # de fuente empaquetados a mano.
+  google_fonts: ^6.2.1
   # HTTP y almacenamiento
   http: ^1.2.0
   shared_preferences: ^2.2.2
