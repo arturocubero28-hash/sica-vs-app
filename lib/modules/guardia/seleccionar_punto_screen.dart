@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../api/client.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/tarjeta_qr.dart';
 
 /// Pantalla bloqueante: el guardia debe elegir en qué punto de acceso está
 /// trabajando antes de poder usar el resto de la app (ACCESS-04, Auditoría
@@ -80,9 +81,7 @@ class _SeleccionarPuntoScreenState extends State<SeleccionarPuntoScreen> {
                   borderRadius: BorderRadius.circular(24),
                 ),
                 padding: const EdgeInsets.all(12),
-                child: Image.asset('assets/images/logo.png', fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) =>
-                        const Icon(Icons.shield, color: AppColors.naranja, size: 48)),
+                child: const LogoResidencial(size: 48, colorRespaldo: AppColors.naranja),
               ),
               const SizedBox(height: 20),
               Text(

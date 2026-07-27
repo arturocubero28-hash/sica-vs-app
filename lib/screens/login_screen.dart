@@ -50,6 +50,20 @@ class _LoginScreenState extends State<LoginScreen> {
     return '${min}m ${seg.toString().padLeft(2, '0')}s';
   }
 
+  // Día 46: carga el nombre/logo de la residencial para CUALQUIER rol (no
+  // solo el residente), porque guardias y otros roles también ven pantallas
+  // con la marca (ej. seleccionar_punto_screen). No se espera (no bloquea la
+  // navegación) y es silenciosa: si falla, ResidencialCache cae en sus
+  // valores por defecto en vez de trabar el login.
+  void _cargarResidencialEnSegundoPlano() {
+    ResidenteApi.miResidencial().then((r) {
+      ResidencialCache.set(
+        r?['nombre'] as String?,
+        logoArchivo: r?['logo_archivo'] as String?,
+      );
+    }).catchError((_) {});
+  }
+
   Future<void> _login() async {
     if (_estaBloqueado) {
       setState(() => _error = 'Demasiados intentos. Esperá $_tiempoRestante.');
@@ -71,6 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       await AuthStorage.guardar(token, rol, user);
       await NotificacionesService.registrarToken();
+      _cargarResidencialEnSegundoPlano(); // no bloquea la navegación
 
       _intentosFallidos = 0; // reset on success
 

@@ -91,7 +91,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _cargarResidencial() async {
     try {
       final r = await ResidenteApi.miResidencial();
-      ResidencialCache.set(r?['nombre'] as String?);
+      ResidencialCache.set(
+        r?['nombre'] as String?,
+        logoArchivo: r?['logo_archivo'] as String?,
+      );
     } catch (_) { /* se queda con el valor por defecto */ }
   }
 

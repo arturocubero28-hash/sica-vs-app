@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../theme/app_theme.dart';
+import '../api/client.dart';
 
 /// Renderiza la tarjeta QR completa en el DISPOSITIVO, no en el servidor.
 ///
@@ -87,29 +88,28 @@ class TarjetaQR extends StatelessWidget {
           ),
           child: Row(children: [
             const SizedBox(width: 12),
-            // Logo en círculo blanco
+            // Logo en círculo blanco. Día 46: antes era un asset fijo
+            // (assets/images/logo.png) con el escudo de Villas del Sol —
+            // ahora se pide el logo real que cada admin sube en Mi Perfil.
+            // Si la residencial no tiene logo propio, o falla la descarga,
+            // se muestra el escudo genérico como respaldo (nunca el logo de
+            // otra residencial).
             Container(
               width: 116, height: 116,
               padding: const EdgeInsets.all(6),
               decoration: const BoxDecoration(
                 color: Colors.white, shape: BoxShape.circle),
-              child: Image.asset(
-                'assets/images/logo.png',
-                fit: BoxFit.contain,
-                // Si el asset no carga, el círculo blanco queda con el escudo
-                errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.shield, color: AppColors.azul, size: 62),
-              ),
+              child: const LogoResidencial(size: 62),
             ),
             const SizedBox(width: 22),
-            const Column(
+            Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('RESIDENCIAL', style: TextStyle(
+                const Text('RESIDENCIAL', style: TextStyle(
                     fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white)),
-                SizedBox(height: 6),
-                Text('VILLAS DEL SOL', style: TextStyle(
+                const SizedBox(height: 6),
+                Text(ResidencialCache.nombre.toUpperCase(), style: const TextStyle(
                     fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white)),
               ],
             ),
@@ -258,3 +258,46 @@ class QrImageViewWidget extends StatelessWidget {
         dataModuleShape: QrDataModuleShape.circle, color: AppColors.azul),
   );
 }
+
+/// Día 46: muestra el logo real de la residencial (subido por el admin en
+/// Mi Perfil) en vez del asset fijo de Villas del Sol. Reutilizable en
+/// cualquier pantalla que antes usaba Image.asset('assets/images/logo.png').
+///
+/// El endpoint que sirve el logo requiere sesión (@token_required), así que
+/// no alcanza con Image.network(url) simple — hace falta resolver los headers
+/// de autenticación primero. Mientras se resuelven (o si no hay logo, o si la
+/// descarga falla), se muestra un ícono de respaldo, nunca un logo de otra
+/// residencial ni un espacio en blanco permanente.
+class LogoResidencial extends StatelessWidget {
+  final double size;
+  final Color colorRespaldo;
+  final BoxFit fit;
+
+  const LogoResidencial({
+    super.key,
+    this.size = 48,
+    this.colorRespaldo = AppColors.azul,
+    this.fit = BoxFit.contain,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final respaldo = Icon(Icons.shield, color: colorRespaldo, size: size);
+    final url = ResidencialCache.logoUrl;
+    if (url == null) return respaldo;
+
+    return FutureBuilder<Map<String, String>>(
+      future: ApiClient.authHeaders(),
+      builder: (context, snap) {
+        if (!snap.hasData) return respaldo;
+        return Image.network(
+          url,
+          headers: snap.data,
+          fit: fit,
+          errorBuilder: (_, __, ___) => respaldo,
+        );
+      },
+    );
+  }
+}
+

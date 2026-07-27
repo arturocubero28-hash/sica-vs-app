@@ -7,19 +7,34 @@ import 'config.dart';
 import 'models.dart';
 
 // ── Nombre/logo de la residencial (Día 46) ─────────────────────────────────────
-/// Caché simple en memoria del nombre de la residencial del usuario logueado.
-/// Se llena una vez al entrar a la app (ver ApiClient.miResidencial) y se usa
-/// en las pantallas que antes tenían "Villas del Sol" fijo en el texto.
+/// Caché simple en memoria del nombre y logo de la residencial del usuario
+/// logueado. Se llena una vez al entrar a la app (ver HomeScreen._cargar
+/// Residencial) y se usa en las pantallas que antes tenían "Villas del Sol" y
+/// el logo fijo (assets/images/logo.png) escritos directamente en el código.
+///
 /// Si por algún motivo no se pudo cargar todavía, [nombre] devuelve
 /// "tu residencial" como texto neutro — nunca queda vacío ni asume un nombre
-/// que puede no ser el correcto.
+/// que puede no ser el correcto. [logoUrl] es null si la residencial no tiene
+/// logo propio subido — en ese caso las pantallas deben mostrar su ícono de
+/// respaldo (el escudo azul), no asumir el logo de otra residencial.
 class ResidencialCache {
   static String? _nombre;
+  static String? _logoArchivo;
 
   static String get nombre => _nombre ?? 'tu residencial';
 
-  static void set(String? nombre) {
+  /// URL completa y autenticable del logo, o null si no hay logo subido.
+  /// Usar con ApiClient.authHeaders() en Image.network (el endpoint requiere
+  /// sesión, aunque el logo en sí no es información privada).
+  static String? get logoUrl => _logoArchivo == null
+      ? null
+      : '${ApiConfig.baseUrl}/cuentas/mi-residencial/logo/$_logoArchivo';
+
+  static void set(String? nombre, {String? logoArchivo}) {
     if (nombre != null && nombre.trim().isNotEmpty) _nombre = nombre;
+    if (logoArchivo != null && logoArchivo.trim().isNotEmpty) {
+      _logoArchivo = logoArchivo;
+    }
   }
 }
 
@@ -109,6 +124,10 @@ class ApiClient {
     }
     return h;
   }
+
+  // Día 46: headers públicos (con el Authorization ya resuelto) para usar en
+  // Image.network al pedir el logo de la residencial — ver ResidencialCache.
+  static Future<Map<String, String>> authHeaders() => _headers();
 
   static Future<dynamic> get(String path) async {
     final res = await http

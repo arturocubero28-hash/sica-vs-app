@@ -317,12 +317,11 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
         width: 30, height: 30,
         decoration: const BoxDecoration(color: AppColors.azul, shape: BoxShape.circle),
         child: Padding(padding: const EdgeInsets.all(5),
-          child: Image.asset('assets/images/logo.png', fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => const Icon(Icons.shield, color: Colors.white, size: 18))),
+          child: LogoResidencial(size: 18, colorRespaldo: Colors.white)),
       ),
       const SizedBox(width: 8),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('VILLAS DEL SOL', style: TextStyle(
+        Text(ResidencialCache.nombre.toUpperCase(), style: const TextStyle(
             fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.azul)),
         if (nombre.isNotEmpty)
           Text(nombre, maxLines: 1, overflow: TextOverflow.ellipsis,
