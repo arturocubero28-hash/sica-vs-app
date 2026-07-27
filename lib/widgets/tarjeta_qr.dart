@@ -25,10 +25,13 @@ import '../api/client.dart';
 /// Para compartir, `RepaintBoundary` captura el widget ya renderizado a PNG
 /// sin necesidad de volver a pedirle nada al backend.
 
-const double kAnchoTarjeta = 720;
-// Día 47: se sube de 880 a 1010 para sumar la fila de recomendaciones de
-// acceso (íconos) sin apretar el resto del contenido.
-const double kAltoTarjeta = 1010;
+const double kAnchoTarjeta = 780;
+// Día 47: se sube de 1010 a 1280 — con los 4 campos de detalle nuevos
+// (hasta 7 líneas posibles a la vez), 1010 se quedaba corto y el texto
+// se salía de su espacio, montándose sobre la fila de íconos de abajo
+// (el problema que reportó el usuario). Con margen de sobra, en vez de
+// calcular al límite otra vez.
+const double kAltoTarjeta = 1280;
 
 class TarjetaQR extends StatelessWidget {
   final Map<String, dynamic> visita;
@@ -281,15 +284,15 @@ class TarjetaQR extends StatelessWidget {
         // señal de tránsito real: azul = informativo/obligatorio, naranja =
         // cortesía esperada, rojo = prohibición.
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _iconoConsejo(Icons.speed, 'Máx.\n20 km/h', AppColors.azul),
-              _iconoConsejo(Icons.pets, 'Peatones y\nmascotas', AppColors.naranja),
+              _iconoConsejo(Icons.pets, 'Respete peatones\ny mascotas', AppColors.naranja),
               _iconoConsejo(Icons.badge, 'Muestre\nidentificación', AppColors.azul),
-              _iconoConsejo(Icons.directions_car, 'Baje el\nvidrio', AppColors.naranja),
-              _iconoConsejo(Icons.local_parking, 'No estacione\nen comunes', AppColors.rojo),
+              _iconoConsejo(Icons.directions_car, 'Baje los vidrios\ndel vehículo', AppColors.naranja),
+              _iconoConsejo(Icons.local_parking, 'No estacione en\náreas comunes', AppColors.rojo),
             ],
           ),
         ),
@@ -335,10 +338,17 @@ class TarjetaQR extends StatelessWidget {
   Widget _iconoConsejo(IconData icono, String texto, Color color) {
     // Día 47: el usuario probó el primer aumento (30%, 46→60) y seguía
     // viéndolos chicos — salto más decisivo esta vez (46→80, casi el
-    // doble). La tarjeta se ensancha a 720 para que las 5 columnas (de
-    // 130px cada una) sigan entrando sin desbordar.
-    return SizedBox(
-      width: 130,
+    // doble). Además, a pedido del usuario, cada ícono queda dentro de un
+    // contenedor redondeado con un tinte suave del mismo color — ayuda a
+    // separar visualmente los 5 y da un aire más "chip"/tarjeta, en vez de
+    // quedar sueltos sobre el blanco.
+    return Container(
+      width: 148,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
