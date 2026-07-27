@@ -153,24 +153,41 @@ class TarjetaQR extends StatelessWidget {
 
         const SizedBox(height: 24),
 
-        // ── QR con marco naranja ──
+        // ── QR con marco naranja y logo incrustado al centro ──
+        // Día 47, a pedido del usuario: el logo de la residencial va
+        // incrustado en el medio del QR (no solo en el círculo de arriba).
+        // Funciona porque el nivel de corrección de errores ya es H (alto,
+        // ~30% del código puede taparse sin que deje de leerse) — eso ya
+        // estaba configurado, pensado justamente para esto. Usa el mismo
+        // logo ya cacheado en disco (ResidencialCache.logoLocal) — sin
+        // logo propio, el QR se ve limpio sin nada en el centro.
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             border: Border.all(color: AppColors.naranja, width: 5),
             borderRadius: BorderRadius.circular(24),
           ),
-          child: QrImageView(
-            data: token,
-            version: QrVersions.auto,
-            size: 320,
-            padding: EdgeInsets.zero,
-            errorCorrectionLevel: QrErrorCorrectLevel.H,
-            backgroundColor: Colors.white,
-            eyeStyle: QrEyeStyle(
-              eyeShape: QrEyeShape.square, color: AppColors.azul),
-            dataModuleStyle: QrDataModuleStyle(
-              dataModuleShape: QrDataModuleShape.circle, color: AppColors.azul),
+          child: FutureBuilder<File?>(
+            future: ResidencialCache.logoLocal(),
+            builder: (context, snap) {
+              final logo = snap.data;
+              return QrImageView(
+                data: token,
+                version: QrVersions.auto,
+                size: 320,
+                padding: EdgeInsets.zero,
+                errorCorrectionLevel: QrErrorCorrectLevel.H,
+                backgroundColor: Colors.white,
+                eyeStyle: QrEyeStyle(
+                  eyeShape: QrEyeShape.square, color: AppColors.azul),
+                dataModuleStyle: QrDataModuleStyle(
+                  dataModuleShape: QrDataModuleShape.circle, color: AppColors.azul),
+                embeddedImage: logo != null ? FileImage(logo) : null,
+                embeddedImageStyle: logo != null
+                    ? const QrEmbeddedImageStyle(size: Size(52, 52))
+                    : null,
+              );
+            },
           ),
         ),
 
@@ -219,8 +236,8 @@ class TarjetaQR extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                if (_validoHasta != null) _detalle('Válido hasta: $_validoHasta'),
-                if (_placa != null) _detalle('Vehículo: $_placa'),
+                if (_validoHasta != null) _detalle('Válido hasta: $_validoHasta', icono: Icons.calendar_today_outlined),
+                if (_placa != null) _detalle('Vehículo: $_placa', icono: Icons.directions_car_outlined),
                 if (_empresa != null) _detalle('Empresa: $_empresa'),
               ],
             ),
@@ -263,9 +280,21 @@ class TarjetaQR extends StatelessWidget {
         : tarjeta;
   }
 
-  Widget _detalle(String texto) => Padding(
+  // Día 47, a pedido del usuario: ícono chico opcional a la par del texto
+  // (calendario para la fecha de vigencia, auto para la placa) — el mismo
+  // detalle que le gustó de una referencia que compartió.
+  Widget _detalle(String texto, {IconData? icono}) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
-    child: Text(texto, style: const TextStyle(fontSize: 17, color: Color(0xFF5A5A5A))),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (icono != null) ...[
+          Icon(icono, size: 17, color: AppColors.azul),
+          const SizedBox(width: 6),
+        ],
+        Text(texto, style: const TextStyle(fontSize: 17, color: Color(0xFF5A5A5A))),
+      ],
+    ),
   );
 
   /// Pictograma de la fila de "recomendaciones de acceso" (Día 47): un
