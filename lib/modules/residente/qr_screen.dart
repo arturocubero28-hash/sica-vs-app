@@ -346,7 +346,7 @@ class _TarjetaQrPanelState extends State<_TarjetaQrPanel> {
       await file.writeAsBytes(bytes);
       await Share.shareXFiles(
         [XFile(file.path)],
-        text: 'Tu código QR de acceso a Residencial Villas del Sol',
+        text: 'Tu código QR de acceso a Residencial ${ResidencialCache.nombre}',
       );
     } catch (_) {
       if (!mounted) return;
@@ -589,9 +589,9 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
                           builder: (_) => AlertDialog(
                             icon: const Icon(Icons.lock_outline, color: AppColors.azul, size: 32),
                             title: const Text('QR recurrente no habilitado'),
-                            content: const Text(
+                            content: Text(
                               'Los QR recurrentes no están habilitados para tu cuenta. '
-                              'Solicitá el permiso a la administración de Villas del Sol.',
+                              'Solicitá el permiso a la administración de ${ResidencialCache.nombre}.',
                             ),
                             actions: [
                               TextButton(
@@ -663,7 +663,7 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
                   : _tipo == 'recurrente'
                       ? (widget.qrRecurrenteHabilitado
                           ? 'Múltiples entradas hasta la fecha de vencimiento (ej. empleada, familiar).'
-                          : '🔒 Tu cuenta no tiene habilitado el QR recurrente. Solicitá el permiso a la administración de Villas del Sol.')
+                          : '🔒 Tu cuenta no tiene habilitado el QR recurrente. Solicitá el permiso a la administración de ${ResidencialCache.nombre}.')
                       : 'Para repartidores: acceso puntual con registro de la empresa.',
               style: TextStyle(
                 fontSize: 12,
@@ -854,7 +854,7 @@ class _CodigoDeliveryPanelState extends State<_CodigoDeliveryPanel> {
     final empresa = widget.visita['empresa']?.toString();
     final empresaTxt = (empresa != null && empresa.isNotEmpty) ? ' de $empresa' : '';
     Share.share(
-      'Hola$empresaTxt, tu código de acceso a Villas del Sol es: $codigo\n'
+      'Hola$empresaTxt, tu código de acceso a ${ResidencialCache.nombre} es: $codigo\n'
       'Dáselo al guardia en la entrada. Válido por 6 horas.',
       subject: 'Código de acceso — $nombre',
     );

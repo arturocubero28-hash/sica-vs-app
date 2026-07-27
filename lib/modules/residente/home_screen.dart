@@ -77,7 +77,23 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _cargando = true;
 
   @override
-  void initState() { super.initState(); _cargar(); }
+  void initState() {
+    super.initState();
+    _cargar();
+    _cargarResidencial();
+  }
+
+  // Día 46: carga el nombre real de la residencial una vez al entrar al Home
+  // (primera pantalla tras el login) para que ya esté en el caché cuando el
+  // residente navegue a generar un QR u otra pantalla que lo muestre.
+  // Silencioso: si falla, ResidencialCache.nombre cae en un texto neutro
+  // ("tu residencial") en vez de dejar un hueco o un dato viejo.
+  Future<void> _cargarResidencial() async {
+    try {
+      final r = await ResidenteApi.miResidencial();
+      ResidencialCache.set(r?['nombre'] as String?);
+    } catch (_) { /* se queda con el valor por defecto */ }
+  }
 
   Future<void> _cargar() async {
     setState(() => _cargando = true);

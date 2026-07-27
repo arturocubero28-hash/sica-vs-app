@@ -6,6 +6,23 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'config.dart';
 import 'models.dart';
 
+// ── Nombre/logo de la residencial (Día 46) ─────────────────────────────────────
+/// Caché simple en memoria del nombre de la residencial del usuario logueado.
+/// Se llena una vez al entrar a la app (ver ApiClient.miResidencial) y se usa
+/// en las pantallas que antes tenían "Villas del Sol" fijo en el texto.
+/// Si por algún motivo no se pudo cargar todavía, [nombre] devuelve
+/// "tu residencial" como texto neutro — nunca queda vacío ni asume un nombre
+/// que puede no ser el correcto.
+class ResidencialCache {
+  static String? _nombre;
+
+  static String get nombre => _nombre ?? 'tu residencial';
+
+  static void set(String? nombre) {
+    if (nombre != null && nombre.trim().isNotEmpty) _nombre = nombre;
+  }
+}
+
 // ── Gestión del token ─────────────────────────────────────────────────────────
 /// El JWT de sesión se guarda en el Keystore/Keychain del sistema operativo
 /// (FlutterSecureStorage) para que otras apps no puedan leerlo.
@@ -234,6 +251,16 @@ class AuthApi {
 class ResidenteApi {
   static Future<Map<String, dynamic>> misCuotas() async {
     final res = await ApiClient.get('/cuotas/mias');
+    return res as Map<String, dynamic>;
+  }
+
+  // Día 46: nombre/logo de la residencial del usuario logueado. Antes la app
+  // tenía "Villas del Sol" escrito directo en varias pantallas — un usuario
+  // de otra residencial veía ese nombre igual. Mismo endpoint que ya usa el
+  // panel web (existe desde el Día 37).
+  static Future<Map<String, dynamic>?> miResidencial() async {
+    final res = await ApiClient.get('/cuentas/mi-residencial');
+    if (res == null) return null;
     return res as Map<String, dynamic>;
   }
 
