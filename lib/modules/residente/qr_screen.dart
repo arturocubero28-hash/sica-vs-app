@@ -84,6 +84,23 @@ class _QrScreenState extends State<QrScreen> {
   }
 
   void _abrirTarjeta(dynamic visita) {
+    // Día 47, a pedido del usuario: en Histórico no tiene sentido volver a
+    // mostrar el QR para compartir — esa visita ya se usó, expiró o se
+    // canceló, y compartir un código muerto no sirve de nada. Ahí se abre
+    // un panel de SOLO INFORMACIÓN (qué pasó, cuándo entró/salió) en vez
+    // del panel de compartir/cancelar, que sigue siendo el correcto para
+    // "Activas".
+    if (!_esActiva(visita)) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (_) => _DetalleHistorialPanel(visita: visita),
+      );
+      return;
+    }
+
     // Los repartidores/delivery usan un código numérico corto y dictable
     // (el guardia lo escribe manualmente en la garita), NO un QR para
     // escanear — el residente comparte el número por WhatsApp o lo dicta
@@ -311,6 +328,119 @@ class _MiniChip extends StatelessWidget {
 }
 
 // ─── Panel de la tarjeta QR (renderizada en el dispositivo, sin pedirla al servidor) ───
+// ─── Panel de SOLO INFORMACIÓN para un registro de Histórico (Día 47) ─────────
+// A diferencia de _TarjetaQrPanel (Activas: QR + compartir/cancelar), esta
+// visita ya terminó su ciclo — no hay nada que compartir ni cancelar, solo
+// mostrar qué pasó: cuándo se creó, cuándo entró/salió, si expiró o se
+// canceló.
+class _DetalleHistorialPanel extends StatelessWidget {
+  final dynamic visita;
+  const _DetalleHistorialPanel({required this.visita});
+
+  String? _fecha(String clave) {
+    final v = visita[clave];
+    if (v == null) return null;
+    final d = DateTime.tryParse(v.toString())?.toLocal();
+    if (d == null) return null;
+    String p(int n) => n.toString().padLeft(2, '0');
+    return '${p(d.day)}/${p(d.month)}/${d.year} a las ${p(d.hour)}:${p(d.minute)}';
+  }
+
+  String? _campo(String clave) {
+    final v = visita[clave];
+    if (v == null) return null;
+    final s = v.toString().trim();
+    return s.isEmpty ? null : s;
+  }
+
+  /// (etiqueta, color) según el estado final de la visita.
+  (String, Color) get _estadoInfo {
+    final estado = visita['estado']?.toString() ?? '';
+    switch (estado) {
+      case 'revocada':
+        return ('Cancelado', AppColors.rojo);
+      case 'expirada':
+        return (_campo('hora_entrada') == null ? 'Expiró sin usarse' : 'Expiró',
+            AppColors.amber);
+      case 'usada':
+        return (_campo('hora_salida') != null ? 'Completado' : 'Usado', AppColors.verde);
+      default:
+        return (estado.isEmpty ? 'Finalizado' : estado, AppColors.gris);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nombre = visita['nombre_visitante']?.toString() ?? '';
+    final (estadoTexto, estadoColor) = _estadoInfo;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20, right: 20, top: 16,
+        bottom: MediaQuery.of(context).padding.bottom + 20,
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 40, height: 4, decoration: BoxDecoration(
+            color: AppColors.borde, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(height: 16),
+        Text(nombre, style: TextStyle(
+            fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.azul)),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+              color: estadoColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(14)),
+          child: Text(estadoTexto, style: TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w700, color: estadoColor)),
+        ),
+        const SizedBox(height: 20),
+
+        // Los mismos datos informativos que ya se ven en la tarjeta QR
+        // compartible (Día 47) — acá sin el QR ni el logo, solo la lista.
+        if (_campo('generada_por') != null)
+          _fila(Icons.person_outline, 'Invita', _campo('generada_por')!),
+        if (_campo('direccion') != null)
+          _fila(Icons.home_outlined, 'Dirección', _campo('direccion')!),
+        if (_fecha('created_at') != null)
+          _fila(Icons.event_outlined, 'Creado', _fecha('created_at')!),
+        if (_fecha('valido_hasta') != null)
+          _fila(Icons.calendar_today_outlined, 'Válido hasta', _fecha('valido_hasta')!),
+        if (_fecha('hora_entrada') != null)
+          _fila(Icons.login, 'Entró', _fecha('hora_entrada')!),
+        if (_fecha('hora_salida') != null)
+          _fila(Icons.logout, 'Salió', _fecha('hora_salida')!),
+        if (_campo('placa_vehiculo') != null)
+          _fila(Icons.directions_car_outlined, 'Vehículo', _campo('placa_vehiculo')!),
+        if (_campo('empresa') != null)
+          _fila(Icons.apartment_outlined, 'Empresa', _campo('empresa')!),
+
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _fila(IconData icono, String etiqueta, String valor) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Row(children: [
+      Icon(icono, size: 19, color: AppColors.azul),
+      const SizedBox(width: 10),
+      Text('$etiqueta: ', style: const TextStyle(
+          fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.gris)),
+      Expanded(
+        child: Text(valor, style: const TextStyle(fontSize: 15, color: Color(0xFF3A3A3A))),
+      ),
+    ]),
+  );
+}
+
 class _TarjetaQrPanel extends StatefulWidget {
   final dynamic visita;
   final VoidCallback onCancelada;
