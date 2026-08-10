@@ -370,9 +370,28 @@ class ResidenteApi {
     );
   }
 
-  static Future<String> urlRecibo(String pagoId) async {
-    final token = await AuthStorage.getToken();
-    return '${ApiConfig.baseUrl}/recibos/$pagoId?_auth=$token';
+  /// Día 56 — descarga el PDF del recibo de un pago y lo guarda en el
+  /// directorio temporal del dispositivo, devolviendo la ruta del archivo.
+  /// Usa el mismo patrón autenticado que el logo (http.get + headers con el
+  /// token JWT), porque el endpoint exige Authorization: Bearer y verifica
+  /// que el residente sea el dueño del pago. El PDF luego se abre/comparte
+  /// con share_plus desde la pantalla del historial.
+  ///
+  /// Devuelve la ruta del archivo PDF, o lanza una excepción si algo falla.
+  static Future<String> descargarRecibo(String pagoId, String numeroRecibo) async {
+    final headers = await ApiClient.authHeaders();
+    final url = '${ApiConfig.baseUrl}/recibos/$pagoId/pdf';
+    final res = await http.get(Uri.parse(url), headers: headers)
+        .timeout(ApiConfig.timeout);
+    if (res.statusCode != 200) {
+      throw Exception('No se pudo obtener el recibo (${res.statusCode})');
+    }
+    final dir = await getTemporaryDirectory();
+    // Nombre legible: si el usuario lo comparte/guarda, el archivo tiene un
+    // nombre con sentido en vez de un UUID.
+    final file = File('${dir.path}/recibo-$numeroRecibo.pdf');
+    await file.writeAsBytes(res.bodyBytes);
+    return file.path;
   }
 }
 

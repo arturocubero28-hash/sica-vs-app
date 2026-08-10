@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import '../../api/client.dart';
 import '../../api/permisos.dart';
@@ -478,12 +479,43 @@ class _ErrorWidget extends StatelessWidget {
 // ─── Historial de pagos (pestaña) ─────────────────────────────────────────────
 final _fmtFechaHora = DateFormat('dd/MM/yyyy HH:mm');
 
-class _HistorialPagos extends StatelessWidget {
+class _HistorialPagos extends StatefulWidget {
   final List<dynamic> historial;
   const _HistorialPagos({required this.historial});
 
   @override
+  State<_HistorialPagos> createState() => _HistorialPagosState();
+}
+
+class _HistorialPagosState extends State<_HistorialPagos> {
+  // id del pago cuyo recibo se está descargando ahora mismo (para el spinner
+  // y para evitar doble toque).
+  String? _descargandoRecibo;
+
+  Future<void> _verRecibo(String pagoId, String numeroRecibo) async {
+    if (_descargandoRecibo != null) return; // ya hay una descarga en curso
+    setState(() => _descargandoRecibo = pagoId);
+    try {
+      final ruta = await ResidenteApi.descargarRecibo(pagoId, numeroRecibo);
+      if (!mounted) return;
+      // Abre la hoja de compartir/ver del teléfono con el PDF: el usuario lo
+      // ve en su visor y desde ahí puede guardarlo o compartirlo (Opción 1).
+      await Share.shareXFiles([XFile(ruta, mimeType: 'application/pdf')],
+          subject: 'Recibo REC-$numeroRecibo');
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('No se pudo abrir el recibo. Revisá tu conexión e intentá de nuevo.'),
+        backgroundColor: AppColors.rojo,
+      ));
+    } finally {
+      if (mounted) setState(() => _descargandoRecibo = null);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final historial = widget.historial;
     if (historial.isEmpty) {
       return const Center(
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -503,38 +535,59 @@ class _HistorialPagos extends StatelessWidget {
         final metodo = pago['metodo']?.toString() ?? '';
         final fecha = DateTime.tryParse(pago['fecha']?.toString() ?? '');
         final recibo = pago['numero_recibo']?.toString();
+        final pagoId = pago['id']?.toString();
+        final descargando = _descargandoRecibo == pagoId;
 
         return Card(
           margin: const EdgeInsets.only(bottom: 10),
           child: Padding(
             padding: const EdgeInsets.all(14),
-            child: Row(children: [
-              Container(
-                width: 44, height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.verde.withOpacity(0.12),
-                  shape: BoxShape.circle,
+            child: Column(children: [
+              Row(children: [
+                Container(
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.verde.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_circle_outline,
+                      color: AppColors.verde, size: 22),
                 ),
-                child: const Icon(Icons.check_circle_outline,
-                    color: AppColors.verde, size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(etiqueta, style: TextStyle(
-                    fontWeight: FontWeight.w700, color: AppColors.azul)),
-                if (fecha != null)
-                  Text(_fmtFechaHora.format(fecha),
-                      style: const TextStyle(fontSize: 12, color: AppColors.gris)),
-                if (metodo.isNotEmpty)
-                  Text(metodo, style: const TextStyle(fontSize: 12, color: AppColors.gris)),
-              ])),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(_fmt.format(monto), style: TextStyle(
-                    fontWeight: FontWeight.w800, color: AppColors.azul, fontSize: 15)),
-                if (recibo != null)
-                  Text('REC-$recibo', style: const TextStyle(
-                      fontSize: 11, color: AppColors.gris)),
+                const SizedBox(width: 14),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(etiqueta, style: TextStyle(
+                      fontWeight: FontWeight.w700, color: AppColors.azul)),
+                  if (fecha != null)
+                    Text(_fmtFechaHora.format(fecha),
+                        style: const TextStyle(fontSize: 12, color: AppColors.gris)),
+                  if (metodo.isNotEmpty)
+                    Text(metodo, style: const TextStyle(fontSize: 12, color: AppColors.gris)),
+                ])),
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Text(_fmt.format(monto), style: TextStyle(
+                      fontWeight: FontWeight.w800, color: AppColors.azul, fontSize: 15)),
+                  if (recibo != null)
+                    Text('REC-$recibo', style: const TextStyle(
+                        fontSize: 11, color: AppColors.gris)),
+                ]),
               ]),
+              // Día 56 — botón para ver/descargar el recibo. Solo aparece si el
+              // pago tiene número de recibo (los recibos existen solo para
+              // pagos aprobados).
+              if (recibo != null && pagoId != null) ...[
+                const Divider(height: 18),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    icon: descargando
+                        ? const SizedBox(width: 16, height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.receipt_long, size: 18),
+                    label: Text(descargando ? 'Abriendo…' : 'Ver recibo'),
+                    onPressed: descargando ? null : () => _verRecibo(pagoId, recibo),
+                  ),
+                ),
+              ],
             ]),
           ),
         );
