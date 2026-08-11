@@ -6,6 +6,7 @@ import '../../api/notificaciones.dart';
 import '../../theme/app_theme.dart';
 import '../../screens/login_screen.dart';
 import 'mi_edificio_screen.dart';
+import '../shared/cambiar_password_screen.dart';
 
 final _fmtL = NumberFormat.currency(locale: 'es_HN', symbol: 'L ');
 
@@ -176,6 +177,16 @@ class _MasScreenState extends State<MasScreen> {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 content: Text('Accedé desde el navegador de tu celular o PC')));
           },
+        ),
+
+        const SizedBox(height: 8),
+        _OpcionTile(
+          icono: Icons.lock_reset,
+          color: AppColors.azul2,
+          titulo: 'Cambiar contraseña',
+          subtitulo: 'Actualizá tu contraseña de acceso',
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const CambiarPasswordScreen())),
         ),
 
         const SizedBox(height: 8),

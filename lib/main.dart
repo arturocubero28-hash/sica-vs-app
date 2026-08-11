@@ -2,12 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'api/notificaciones.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Día 56 — datos de locale para fechas en español (nombres de mes/día).
+  // Necesario para DateFormat con locale 'es' (ej. el reloj del encabezado);
+  // sin esto, DateFormat("EEE d MMM", 'es') lanzaría una excepción.
+  await initializeDateFormatting('es', null);
 
   // Inicializar Firebase (usa google-services.json)
   try {

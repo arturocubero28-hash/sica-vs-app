@@ -315,6 +315,18 @@ class AuthApi {
     );
     return res as Map<String, dynamic>;
   }
+
+  /// Día 56 — cambio de contraseña del propio usuario desde la app.
+  /// Pega al endpoint que ya existe (POST /auth/cambiar-password), que
+  /// valida la contraseña actual y la fortaleza de la nueva. Lanza una
+  /// excepción con el mensaje del backend si algo falla (contraseña actual
+  /// incorrecta, nueva muy débil, etc.).
+  static Future<void> cambiarPassword(String actual, String nueva) async {
+    await ApiClient.post('/auth/cambiar-password', {
+      'password_actual': actual,
+      'password_nueva': nueva,
+    });
+  }
 }
 
 // ── Endpoints del residente ───────────────────────────────────────────────────

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../api/client.dart';
 import '../../api/notificaciones.dart';
 import '../../theme/app_theme.dart';
@@ -9,6 +11,9 @@ import 'home_screen.dart';
 import 'mas_screen.dart';
 import 'tarjeta_virtual_screen.dart';
 import '../../widgets/tarjeta_qr.dart';
+
+// Día 56 — formato discreto de fecha/hora para el encabezado: "mié 9 ago · 14:30".
+final _fmtEncabezado = DateFormat("EEE d MMM · HH:mm", 'es');
 
 class ResidenteShell extends StatefulWidget {
   const ResidenteShell({super.key});
@@ -172,7 +177,7 @@ class _ResidenteShellState extends State<ResidenteShell> {
 
 /// Encabezado moderno: degradado, avatar con iniciales, nombre protagonista
 /// y chip de contexto con la unidad. Reemplaza el AppBar plano estándar.
-class _Encabezado extends StatelessWidget {
+class _Encabezado extends StatefulWidget {
   final String nombreCompleto;
   final String iniciales;
   final String? unidad;
@@ -186,8 +191,37 @@ class _Encabezado extends StatelessWidget {
   });
 
   @override
+  State<_Encabezado> createState() => _EncabezadoState();
+}
+
+class _EncabezadoState extends State<_Encabezado> {
+  late DateTime _ahora;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _ahora = DateTime.now();
+    // Reloj en vivo: se actualiza cada minuto (no cada segundo, no hace
+    // falta y ahorra reconstrucciones).
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() => _ahora = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
+    final nombreCompleto = widget.nombreCompleto;
+    final iniciales = widget.iniciales;
+    final unidad = widget.unidad;
+    final onLogout = widget.onLogout;
     return Container(
       padding: EdgeInsets.fromLTRB(18, topPadding + 14, 18, 20),
       decoration: BoxDecoration(
@@ -242,25 +276,41 @@ class _Encabezado extends StatelessWidget {
             ),
           ),
         ]),
-        if (unidad != null) ...[
-          const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppRadius.sm),
+        // Día 56 — fila con el chip de la unidad a la izquierda y la fecha/
+        // hora en vivo a la derecha, justificada. Si no hay unidad, igual se
+        // muestra la fecha/hora (alineada a la derecha sola).
+        const SizedBox(height: 14),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (unidad != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.home_rounded, color: AppColors.naranja, size: 15),
+                  const SizedBox(width: 7),
+                  Text(unidad, style: const TextStyle(
+                      fontSize: 12.5, color: Colors.white, fontWeight: FontWeight.w600)),
+                ]),
+              )
+            else
+              const SizedBox.shrink(),
+            // Fecha y hora, discreta, justificada a la derecha.
+            Text(
+              _fmtEncabezado.format(_ahora),
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.white.withOpacity(0.75),
+                fontWeight: FontWeight.w500,
               ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.home_rounded, color: AppColors.naranja, size: 15),
-                const SizedBox(width: 7),
-                Text(unidad!, style: const TextStyle(
-                    fontSize: 12.5, color: Colors.white, fontWeight: FontWeight.w600)),
-              ]),
             ),
-          ),
-        ],
+          ],
+        ),
       ]),
     );
   }
