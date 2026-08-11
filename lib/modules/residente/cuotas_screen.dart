@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart';
 import 'dart:io';
+import '../shared/visor_pdf_screen.dart';
 import '../../api/client.dart';
 import '../../api/permisos.dart';
 import '../../api/camara_helper.dart';
@@ -498,10 +498,16 @@ class _HistorialPagosState extends State<_HistorialPagos> {
     try {
       final ruta = await ResidenteApi.descargarRecibo(pagoId, numeroRecibo);
       if (!mounted) return;
-      // Abre la hoja de compartir/ver del teléfono con el PDF: el usuario lo
-      // ve en su visor y desde ahí puede guardarlo o compartirlo (Opción 1).
-      await Share.shareXFiles([XFile(ruta, mimeType: 'application/pdf')],
-          subject: 'Recibo REC-$numeroRecibo');
+      // Día 56 — abre el visor de PDF embebido (previsualiza dentro de la
+      // app), con sus propios botones de descargar y compartir. Antes tiraba
+      // directo a compartir, lo que no dejaba ver el recibo primero.
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => VisorPdfScreen(
+          rutaArchivo: ruta,
+          titulo: 'Recibo REC-$numeroRecibo',
+          nombreArchivo: 'recibo-$numeroRecibo.pdf',
+        ),
+      ));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
