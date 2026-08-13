@@ -70,6 +70,7 @@ class _GuardiaShellState extends State<GuardiaShell> {
   Future<void> _logout() async {
     await NotificacionesService.desregistrar();
     await AuthStorage.cerrarSesion(); // AUTH-02: revoca el JWT en el servidor, no solo local
+    AppColors.restablecerFabrica(); // Día 57 — no heredar colores al salir
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);

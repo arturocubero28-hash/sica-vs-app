@@ -63,6 +63,21 @@ class AppColors {
     if (huboCambio) notifier.notificar();
   }
 
+  /// Día 57 — restablece los colores de fábrica. Se llama al CERRAR SESIÓN,
+  /// para que las pantallas previas al login (splash, login) no queden con
+  /// los colores de la residencial de la sesión anterior. Vuelve azul/azul2/
+  /// naranja a sus valores de fábrica y notifica para que MaterialApp
+  /// reconstruya el tema. Solo notifica si de verdad algo cambió.
+  static void restablecerFabrica() {
+    final cambio = azul.value != azulDeFabrica.value ||
+        azul2.value != _azul2DeFabrica.value ||
+        naranja.value != naranjaDeFabrica.value;
+    azul = azulDeFabrica;
+    azul2 = _azul2DeFabrica;
+    naranja = naranjaDeFabrica;
+    if (cambio) notifier.notificar();
+  }
+
   /// Convierte "#RRGGBB" a Color. null si el formato no es válido — nunca
   /// deja que un dato mal formado llegue a pintar la pantalla.
   static Color? _parsearHex(String? hex) {

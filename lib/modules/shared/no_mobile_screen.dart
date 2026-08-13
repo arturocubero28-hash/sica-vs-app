@@ -66,6 +66,7 @@ class NoMobileScreen extends StatelessWidget {
                   onPressed: () async {
                     await NotificacionesService.desregistrar();
                     await AuthStorage.cerrarSesion(); // AUTH-02: revoca el JWT en el servidor
+                    AppColors.restablecerFabrica(); // Día 57 — no heredar colores al salir
                     if (!context.mounted) return;
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(builder: (_) => const LoginScreen()),

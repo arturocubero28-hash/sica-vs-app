@@ -58,6 +58,9 @@ class _ResidenteShellState extends State<ResidenteShell> {
   Future<void> _logout() async {
     await NotificacionesService.desregistrar();
     await AuthStorage.cerrarSesion(); // AUTH-02: revoca el JWT en el servidor, no solo local
+    // Día 57 — restablecer colores de fábrica al salir, para que la pantalla
+    // de login no herede los colores de la residencial de esta sesión.
+    AppColors.restablecerFabrica();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
