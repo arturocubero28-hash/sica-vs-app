@@ -1,11 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import 'config.dart';
 import 'models.dart';
+import '../main.dart' show navigatorKey;
+import '../theme/app_theme.dart';
+import '../screens/login_screen.dart';
 
 // ── Nombre/logo de la residencial (Día 46) ─────────────────────────────────────
 /// Caché del nombre y logo de la residencial del usuario logueado.
@@ -280,20 +284,50 @@ class ApiClient {
     return _parse(res);
   }
 
+  // Día 58 (A-2) — evita disparar la expulsión más de una vez si varias
+  // peticiones fallan casi al mismo tiempo (típico: una pantalla que hace 2
+  // o 3 llamadas al abrir). Se resetea cuando el usuario vuelve a loguearse.
+  static bool _expulsando = false;
+
   static dynamic _parse(http.Response res) {
     final body = jsonDecode(utf8.decode(res.bodyBytes));
     if (res.statusCode >= 200 && res.statusCode < 300) {
       return body['data'] ?? body;
     }
-    // 401: token inválido o expirado → limpiar sesión local
+    // 401: token inválido, expirado, O REVOCADO (sesión cerrada desde otro
+    // dispositivo/el panel web — AUTH-02). Antes solo se limpiaba el token
+    // local sin sacar al usuario de la pantalla en la que estaba: se quedaba
+    // viendo errores de conexión en bucle. Ahora se expulsa al login.
     if (res.statusCode == 401) {
-      AuthStorage.limpiar(); // async fire-and-forget — no bloquea
+      _expulsarPorSesionInvalida();
     }
     final err = body['error'];
     throw ApiException(
       code:    err?['code'] ?? 'ERROR',
       message: err?['message'] ?? 'Error desconocido',
     );
+  }
+
+  static void _expulsarPorSesionInvalida() {
+    AuthStorage.limpiar(); // async fire-and-forget — no bloquea
+    if (_expulsando) return; // ya se está navegando al login, no repetir
+    _expulsando = true;
+    // Día 57 (A-3) — no heredar los colores de la residencial de la sesión
+    // que se acaba de invalidar.
+    AppColors.restablecerFabrica();
+    final nav = navigatorKey.currentState;
+    if (nav != null) {
+      nav.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen(
+          mensajeInicial: 'Tu sesión se cerró desde otro dispositivo. Iniciá sesión de nuevo.',
+        )),
+        (_) => false,
+      );
+    }
+    // Se rearma para la próxima vez que haga falta expulsar, después de un
+    // margen breve — suficiente para que las peticiones concurrentes de la
+    // misma tanda (que ya dispararon el catch) no vuelvan a navegar.
+    Future.delayed(const Duration(seconds: 2), () => _expulsando = false);
   }
 }
 

@@ -5,7 +5,11 @@ import '../modules/shared/role_router.dart';
 import '../api/notificaciones.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  // Día 58 (A-2) — mensaje que se muestra al entrar, usado cuando se llega
+  // acá porque el backend expulsó al usuario (sesión revocada/expirada), en
+  // vez del login normal en blanco.
+  final String? mensajeInicial;
+  const LoginScreen({super.key, this.mensajeInicial});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -17,6 +21,14 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _cargando      = false;
   bool _verPass       = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // Si se llegó acá por una expulsión (sesión revocada), mostrar el aviso
+    // ya en el primer frame, como si fuera un error del formulario.
+    if (widget.mensajeInicial != null) _error = widget.mensajeInicial;
+  }
 
   // ── Bloqueo por intentos fallidos ──
   int _intentosFallidos = 0;

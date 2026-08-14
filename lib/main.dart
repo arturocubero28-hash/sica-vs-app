@@ -7,6 +7,11 @@ import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'api/notificaciones.dart';
 
+/// Día 58 (A-2) — clave global de navegación. Permite navegar a una pantalla
+/// (ej. el login) desde fuera del árbol de widgets, como client.dart, que no
+/// tiene BuildContext propio. Es el patrón estándar de Flutter para esto.
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -63,6 +68,7 @@ class _SicaVsAppState extends State<SicaVsApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'SICA-VS',
       theme: AppTheme.theme,
       debugShowCheckedModeBanner: false,
