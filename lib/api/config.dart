@@ -23,7 +23,7 @@ class ApiConfig {
       'https://diabetes-earflap-faction.ngrok-free.dev/api/v1';
 
   static const String baseUrl = _esProd
-      ? 'https://sicavs.villasdelsol.hn/api/v1'  // ← al desplegar en DigitalOcean
+      ? 'https://patronatovillasdelsol.com/api/v1'  // ← dominio real (Día 58)
       : _esEmulador
           ? 'http://10.0.2.2:5000/api/v1'        // ← emulador Android
           : _tunelDev;                            // ← teléfono físico (default)
