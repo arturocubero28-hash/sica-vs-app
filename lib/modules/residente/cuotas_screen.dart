@@ -8,6 +8,7 @@ import '../../api/permisos.dart';
 import '../../api/camara_helper.dart';
 import '../../api/recuperacion_comprobante.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/error_dialog.dart';
 
 final _fmt = NumberFormat.currency(locale: 'es_HN', symbol: 'L ');
 final _fmtFecha = DateFormat('dd/MM/yyyy');
@@ -514,12 +515,11 @@ class _HistorialPagosState extends State<_HistorialPagos> {
       // un mensaje útil con el código de estado HTTP real cuando falla
       // (ej. "No se pudo obtener el recibo (404)") -- antes ese detalle se
       // perdía acá, reemplazado siempre por el mismo mensaje genérico sin
-      // ninguna pista de la causa real.
+      // ninguna pista de la causa real. (Este mensaje fue justo el que
+      // reveló el bug real de "io" en el backend el Día 63.)
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('No se pudo abrir el recibo: $e'),
-        backgroundColor: AppColors.rojo,
-      ));
+      // Día 63 — modal en vez de SnackBar.
+      ErrorDialog.mostrar(context, 'No se pudo abrir el recibo: $e');
     } finally {
       if (mounted) setState(() => _descargandoRecibo = null);
     }
@@ -635,22 +635,11 @@ void _avisoPermiso(BuildContext context, String cual) {
 /// Muestra el error de archivo del backend en un diálogo (mensaje completo con
 // indicaciones de formatos permitidos y tamaño), no en un snackbar cortado.
 void _mostrarErrorArchivo(BuildContext context, String mensaje) {
+  // Día 63 — unificado con el mismo modal reutilizable del resto de la app
+  // (antes ya era un diálogo, no un SnackBar, pero con un ícono/estilo
+  // propio distinto -- ahora usa el mismo diseño en todos lados).
   final limpio = mensaje.replaceFirst('Exception: ', '');
-  showDialog(
-    context: context,
-    builder: (_) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      icon: const Icon(Icons.warning_amber, color: AppColors.amber, size: 40),
-      title: const Text('No se pudo subir'),
-      content: Text(limpio, style: const TextStyle(height: 1.4)),
-      actions: [
-        ElevatedButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Entendido'),
-        ),
-      ],
-    ),
-  );
+  ErrorDialog.mostrar(context, limpio, titulo: 'No se pudo subir');
 }
 
 // ─── Pantalla: subir uno o varios comprobantes para una cuota ─────────────────

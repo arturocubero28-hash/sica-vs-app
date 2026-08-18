@@ -4,6 +4,7 @@ import '../../api/client.dart';
 import '../../api/ble_service.dart';
 import '../../api/screen_secure.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/error_dialog.dart';
 import '../../widgets/tarjeta_qr.dart';
 
 /// Pantalla "Mi tarjeta de acceso" con dos métodos:
@@ -584,8 +585,10 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
 
   void _error(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: AppColors.rojo));
+    // Día 63 — modal reutilizable en vez de SnackBar. Al ser un helper
+    // centralizado, este único cambio corrige los 7 puntos de llamada de
+    // este archivo de una sola vez.
+    ErrorDialog.mostrar(context, msg);
   }
 
   void _dialogo(String titulo, String contenido) {

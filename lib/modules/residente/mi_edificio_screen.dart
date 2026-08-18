@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../api/client.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/error_dialog.dart';
 
 /// Mi Edificio (solo dueños de edificio): generar códigos de enrolamiento
 /// de 6 dígitos para que los inquilinos se registren avalados.
@@ -66,15 +67,11 @@ class _MiEdificioScreenState extends State<MiEdificioScreen> {
   Future<void> _generar() async {
     if (_edificioSel == null) return;
     if (_aptoCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('El número de apartamento es obligatorio'),
-          backgroundColor: AppColors.rojo));
+      ErrorDialog.mostrar(context, 'El número de apartamento es obligatorio');
       return;
     }
     if (_notaCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('El nombre del inquilino es obligatorio'),
-          backgroundColor: AppColors.rojo));
+      ErrorDialog.mostrar(context, 'El nombre del inquilino es obligatorio');
       return;
     }
     setState(() => _generando = true);
@@ -91,8 +88,7 @@ class _MiEdificioScreenState extends State<MiEdificioScreen> {
           content: Text('✓ Código generado'), backgroundColor: AppColors.verde));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: AppColors.rojo));
+      ErrorDialog.mostrar(context, e.toString());
     } finally {
       if (mounted) setState(() => _generando = false);
     }
@@ -370,8 +366,7 @@ class _CodigoCard extends StatelessWidget {
                   await ApiClient.delete('/unidades/enrolamiento/$id');
                   onBorrado();
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(e.toString()), backgroundColor: AppColors.rojo));
+                  ErrorDialog.mostrar(context, e.toString());
                 }
               },
             ),

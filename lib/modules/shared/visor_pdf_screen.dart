@@ -4,6 +4,7 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/error_dialog.dart';
 
 /// Día 56 — visor de PDF embebido, reutilizable. Muestra un PDF ya
 /// descargado (ruta local) dentro de la app, con botones para compartir y
@@ -65,12 +66,12 @@ class _VisorPdfScreenState extends State<VisorPdfScreen> {
         content: Text('Recibo guardado en ${destino.path}'),
         backgroundColor: AppColors.verde,
       ));
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('No se pudo guardar el recibo.'),
-        backgroundColor: AppColors.rojo,
-      ));
+      // Día 63 — modal de error reutilizable en vez de un SnackBar chico
+      // (pedido del usuario), y de paso el mismo criterio de ayer: mostrar
+      // el tipo real del error en vez de descartarlo con catch (_).
+      ErrorDialog.mostrar(context, 'No se pudo guardar el recibo. (${e.runtimeType})');
     } finally {
       if (mounted) setState(() => _guardando = false);
     }

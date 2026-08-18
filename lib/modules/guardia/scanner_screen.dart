@@ -7,6 +7,7 @@ import '../../api/permisos.dart';
 import '../../api/camara_helper.dart';
 import '../../api/recuperacion_guardia.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/error_dialog.dart';
 
 /// Flujo del guardia: escanear → revisar → registrar.
 /// Resistente a reinicios de Android (largeHeap + retrieveLostData).
@@ -258,10 +259,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       if (mounted) setState(() => _misTrancas = data['trancas'] as List<dynamic>);
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('No se pudieron cargar las trancas de tu punto'),
-          backgroundColor: AppColors.rojo,
-        ));
+        ErrorDialog.mostrar(context, 'No se pudieron cargar las trancas de tu punto');
       }
     } finally {
       if (mounted) setState(() => _cargandoTrancas = false);
@@ -332,13 +330,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
       ));
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.message), backgroundColor: AppColors.rojo));
+        ErrorDialog.mostrar(context, e.message);
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('No se pudo registrar la apertura'), backgroundColor: AppColors.rojo));
+        ErrorDialog.mostrar(context, 'No se pudo registrar la apertura');
       }
     }
   }

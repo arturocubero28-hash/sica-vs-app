@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../../api/client.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/error_dialog.dart';
 import '../../widgets/tarjeta_qr.dart';
 
 final _fmtVigencia = DateFormat('dd/MM/yyyy');
@@ -61,10 +62,11 @@ class _QrScreenState extends State<QrScreen> {
 
   void _abrirCrear() {
     if (_bloqueada) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Tu cuenta está bloqueada por mora. No podés generar QR.'),
-        backgroundColor: AppColors.rojo,
-      ));
+      // Día 63: modal en vez de SnackBar. De paso, mismo tono suavizado que
+      // se alineó ayer en el backend (Día 62) -- este texto había quedado
+      // con la redacción vieja ("bloqueada por mora").
+      ErrorDialog.mostrar(context,
+          'Tu servicio está suspendido por falta de pago. Realizá tu pago para volver a generar visitas.');
       return;
     }
     showModalBottomSheet(
@@ -480,9 +482,7 @@ class _TarjetaQrPanelState extends State<_TarjetaQrPanel> {
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('No se pudo compartir el QR'),
-          backgroundColor: AppColors.rojo));
+      ErrorDialog.mostrar(context, 'No se pudo compartir el QR');
     } finally {
       if (mounted) setState(() => _compartiendo = false);
     }
@@ -517,8 +517,7 @@ class _TarjetaQrPanelState extends State<_TarjetaQrPanel> {
       widget.onCancelada();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: AppColors.rojo));
+      ErrorDialog.mostrar(context, e.toString());
     } finally {
       if (mounted) setState(() => _cancelando = false);
     }
@@ -976,8 +975,7 @@ class _CodigoDeliveryPanelState extends State<_CodigoDeliveryPanel> {
       widget.onCancelada();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: AppColors.rojo));
+      ErrorDialog.mostrar(context, e.toString());
     } finally {
       if (mounted) setState(() => _cancelando = false);
     }

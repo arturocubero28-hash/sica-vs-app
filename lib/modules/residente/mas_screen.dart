@@ -4,6 +4,7 @@ import '../../api/client.dart';
 import '../../api/bloqueo_biometrico.dart';
 import '../../api/notificaciones.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/error_dialog.dart';
 import '../../screens/login_screen.dart';
 import 'mi_edificio_screen.dart';
 import '../shared/cambiar_password_screen.dart';
@@ -43,9 +44,7 @@ class _MasScreenState extends State<MasScreen> {
     if (mounted) {
       setState(() => _bloqueoActivo = ok ? valor : _bloqueoActivo);
       if (!ok && valor) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('No se pudo activar. Verificá tu huella.'),
-            backgroundColor: AppColors.rojo));
+        ErrorDialog.mostrar(context, 'No se pudo activar. Verificá tu huella.');
       }
     }
   }
