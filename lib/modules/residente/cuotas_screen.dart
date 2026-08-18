@@ -508,10 +508,16 @@ class _HistorialPagosState extends State<_HistorialPagos> {
           nombreArchivo: 'recibo-$numeroRecibo.pdf',
         ),
       ));
-    } catch (_) {
+    } catch (e) {
+      // Día 62 — mismo criterio que login_screen.dart: mostrar el error
+      // real en vez de descartarlo. ResidenteApi.descargarRecibo() ya arma
+      // un mensaje útil con el código de estado HTTP real cuando falla
+      // (ej. "No se pudo obtener el recibo (404)") -- antes ese detalle se
+      // perdía acá, reemplazado siempre por el mismo mensaje genérico sin
+      // ninguna pista de la causa real.
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('No se pudo abrir el recibo. Revisá tu conexión e intentá de nuevo.'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('No se pudo abrir el recibo: $e'),
         backgroundColor: AppColors.rojo,
       ));
     } finally {
