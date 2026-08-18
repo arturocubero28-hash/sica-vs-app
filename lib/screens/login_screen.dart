@@ -120,8 +120,15 @@ class _LoginScreenState extends State<LoginScreen> {
         final restantes = _maxIntentos - _intentosFallidos;
         setState(() => _error = '${e.message} ($restantes intentos restantes)');
       }
-    } catch (_) {
-      setState(() => _error = 'No se pudo conectar. Verificá tu conexión.');
+    } catch (e) {
+      // Día 62 — antes "catch (_)" descartaba el error real por completo,
+      // sin dejar ningún rastro ni en pantalla ni en el log del sistema.
+      // Un problema real de conexión quedaba imposible de diagnosticar sin
+      // conectar el teléfono por USB. Ahora se muestra el tipo de error
+      // real entre paréntesis (ej. "SocketException", "HandshakeException",
+      // "TimeoutException") -- da una pista concreta sin exponer detalles
+      // técnicos excesivos al residente.
+      setState(() => _error = 'No se pudo conectar. Verificá tu conexión. (${e.runtimeType})');
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
@@ -325,8 +332,11 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
       });
     } on ApiException catch (e) {
       setState(() => _error = e.message);
-    } catch (_) {
-      setState(() => _error = 'No se pudo conectar');
+    } catch (e) {
+      // Día 62 — mismo criterio que el catch de login: mostrar el tipo de
+      // error real en vez de descartarlo, para poder diagnosticar sin
+      // depender de conectar el teléfono por USB.
+      setState(() => _error = 'No se pudo conectar (${e.runtimeType})');
     } finally {
       if (mounted) setState(() => _enviando = false);
     }
@@ -350,8 +360,11 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
       setState(() => _completado = true);
     } on ApiException catch (e) {
       setState(() => _error = e.message);
-    } catch (_) {
-      setState(() => _error = 'No se pudo conectar');
+    } catch (e) {
+      // Día 62 — mismo criterio que el catch de login: mostrar el tipo de
+      // error real en vez de descartarlo, para poder diagnosticar sin
+      // depender de conectar el teléfono por USB.
+      setState(() => _error = 'No se pudo conectar (${e.runtimeType})');
     } finally {
       if (mounted) setState(() => _restableciendo = false);
     }
