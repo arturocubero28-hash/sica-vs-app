@@ -391,7 +391,6 @@ class _DetalleAptoSheetState extends State<_DetalleAptoSheet> {
   final _motivoCtrl = TextEditingController();
   DateTime? _fechaDesocupacion;
   bool _enviando = false;
-  String? _error;
   bool _solicitada = false;
 
   @override
@@ -411,14 +410,14 @@ class _DetalleAptoSheetState extends State<_DetalleAptoSheet> {
 
   Future<void> _solicitar() async {
     if (_motivoCtrl.text.trim().isEmpty) {
-      setState(() => _error = 'El motivo es obligatorio');
+      ErrorDialog.mostrar(context, 'El motivo es obligatorio');
       return;
     }
     if (_fechaDesocupacion == null) {
-      setState(() => _error = 'Seleccioná la fecha de desocupación');
+      ErrorDialog.mostrar(context, 'Seleccioná la fecha de desocupación');
       return;
     }
-    setState(() { _enviando = true; _error = null; });
+    setState(() { _enviando = true; });
     try {
       final cuentaId = widget.apto['id']?.toString()
           ?? widget.apto['uuid_publico']?.toString();
@@ -430,9 +429,9 @@ class _DetalleAptoSheetState extends State<_DetalleAptoSheet> {
       setState(() => _solicitada = true);
       widget.onSolicitada();
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      ErrorDialog.mostrar(context, e.message);
     } catch (_) {
-      setState(() => _error = 'No se pudo enviar la solicitud');
+      ErrorDialog.mostrar(context, 'No se pudo enviar la solicitud');
     } finally {
       if (mounted) setState(() => _enviando = false);
     }
@@ -572,10 +571,6 @@ class _DetalleAptoSheetState extends State<_DetalleAptoSheet> {
                 ),
               ),
 
-              if (_error != null) ...[
-                const SizedBox(height: 10),
-                Text(_error!, style: const TextStyle(color: AppColors.rojo, fontSize: 13)),
-              ],
               const SizedBox(height: 18),
 
               SizedBox(width: double.infinity,
