@@ -27,7 +27,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   _Paso _paso = _Paso.scan;
   bool _procesando = false;
-  String? _error;
 
   Map<String, dynamic>? _visita;
   String _direccion = 'entrada';
@@ -154,7 +153,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
   }
 
   Future<void> _validar(String token) async {
-    setState(() { _procesando = true; _error = null; });
+    setState(() { _procesando = true; });
     try {
       final res = await ApiClient.post('/visitas/qr/validar', {'token': token.trim()});
       final data = res as Map<String, dynamic>;
@@ -172,11 +171,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
       await _ctrl.stop();
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.message);
+      ErrorDialog.mostrar(context, e.message);
       _ctrl.start();
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'No se pudo validar el código');
+      ErrorDialog.mostrar(context, 'No se pudo validar el código');
       _ctrl.start();
     } finally {
       if (mounted) setState(() => _procesando = false);
@@ -222,10 +221,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   Future<void> _registrar() async {
     if (_tokenQr == null) {
-      setState(() => _error = 'Volvé a escanear el código — se perdió la sesión de validación');
+      ErrorDialog.mostrar(context, 'Volvé a escanear el código — se perdió la sesión de validación');
       return;
     }
-    setState(() { _procesando = true; _error = null; });
+    setState(() { _procesando = true; });
     try {
       await ApiClient.registrarAcceso(
         token: _tokenQr!,
@@ -241,9 +240,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
         _paso = _Paso.done;
       });
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted) ErrorDialog.mostrar(context, e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'No se pudo registrar el acceso');
+      if (mounted) ErrorDialog.mostrar(context, 'No se pudo registrar el acceso');
     } finally {
       if (mounted) setState(() => _procesando = false);
     }
@@ -365,7 +364,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     RecuperacionGuardia.limpiar(); // descartar registro en curso
     setState(() {
       _paso = _Paso.scan;
-      _visita = null; _error = null; _tokenQr = null;
+      _visita = null; _tokenQr = null;
       _fotoId = null; _fotoPlaca = null; _fotoNumero = null;
       _codigoCtrl.clear();
       _placaCtrl.clear();
@@ -396,13 +395,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
       if (_procesando)
         Container(color: Colors.black54,
             child: Center(child: CircularProgressIndicator(color: AppColors.naranja))),
-      if (_error != null)
-        Positioned(top: 84, left: 16, right: 16,
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppColors.rojo, borderRadius: BorderRadius.circular(12)),
-            child: Text(_error!, style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
-          )),
       Positioned(bottom: 24, left: 16, right: 16,
         child: Container(
           padding: const EdgeInsets.all(12),
@@ -483,8 +475,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
           child: const Row(children: [
             Icon(Icons.warning_amber, color: AppColors.rojo, size: 20),
             SizedBox(width: 10),
+            // Día 63 — mismo tono suavizado ya alineado en el resto de la
+            // app el Día 62 ("bloqueada por mora" -> "suspendido por falta
+            // de pago"). Este texto se había escapado de ese arreglo. Sigue
+            // siendo un banner PERMANENTE (no modal a propósito): el
+            // guardia necesita seguirlo viendo mientras decide si da
+            // acceso, no que se cierre solo.
             Expanded(child: Text(
-              'CUENTA BLOQUEADA POR MORA. Verificá con administración antes de dar acceso.',
+              'Servicio suspendido por falta de pago. Verificá con administración antes de dar acceso.',
               style: TextStyle(color: AppColors.rojo, fontSize: 13, fontWeight: FontWeight.w600),
             )),
           ]),
@@ -557,10 +555,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
         _FotoBoton(label: 'Foto del número asignado (opcional)', tomada: _fotoNumero != null, onTap: () => _tomarFoto('numero')),
         const SizedBox(height: 6),
         const Text('* obligatorias para dar acceso', style: TextStyle(fontSize: 11, color: AppColors.gris)),
-      ],
-      if (_error != null) ...[
-        const SizedBox(height: 10),
-        Text(_error!, style: const TextStyle(color: AppColors.rojo, fontSize: 13)),
       ],
       const SizedBox(height: 18),
       Row(children: [
