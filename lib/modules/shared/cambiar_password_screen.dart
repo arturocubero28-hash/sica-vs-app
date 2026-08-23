@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../api/client.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/error_dialog.dart';
 
 /// Día 56 — pantalla para que el usuario cambie su propia contraseña desde
 /// la app. Valida en el cliente (coincidencia + reglas de fortaleza que
@@ -20,7 +21,6 @@ class _CambiarPasswordScreenState extends State<CambiarPasswordScreen> {
   bool _verActual = false;
   bool _verNueva = false;
   bool _guardando = false;
-  String? _error;
 
   @override
   void dispose() {
@@ -40,26 +40,25 @@ class _CambiarPasswordScreenState extends State<CambiarPasswordScreen> {
   }
 
   Future<void> _guardar() async {
-    setState(() => _error = null);
     final actual = _actual.text;
     final nueva = _nueva.text;
     final confirmar = _confirmar.text;
 
     if (actual.isEmpty) {
-      setState(() => _error = 'Ingresá tu contraseña actual.');
+      ErrorDialog.mostrar(context, 'Ingresá tu contraseña actual.');
       return;
     }
     final errReglas = _validarNueva(nueva);
     if (errReglas != null) {
-      setState(() => _error = errReglas);
+      ErrorDialog.mostrar(context, errReglas);
       return;
     }
     if (nueva != confirmar) {
-      setState(() => _error = 'La nueva contraseña y su confirmación no coinciden.');
+      ErrorDialog.mostrar(context, 'La nueva contraseña y su confirmación no coinciden.');
       return;
     }
     if (nueva == actual) {
-      setState(() => _error = 'La nueva contraseña debe ser distinta de la actual.');
+      ErrorDialog.mostrar(context, 'La nueva contraseña debe ser distinta de la actual.');
       return;
     }
 
@@ -77,7 +76,7 @@ class _CambiarPasswordScreenState extends State<CambiarPasswordScreen> {
       // El mensaje del backend viene en la excepción (ej. "La contraseña
       // actual es incorrecta"). Se limpia el prefijo técnico si lo hubiera.
       var msg = e.toString().replaceFirst('Exception: ', '');
-      setState(() => _error = msg);
+      ErrorDialog.mostrar(context, msg);
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
@@ -133,22 +132,6 @@ class _CambiarPasswordScreenState extends State<CambiarPasswordScreen> {
               prefixIcon: Icon(Icons.lock_reset),
             ),
           ),
-          if (_error != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.rojo.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(children: [
-                const Icon(Icons.error_outline, color: AppColors.rojo, size: 20),
-                const SizedBox(width: 10),
-                Expanded(child: Text(_error!,
-                    style: const TextStyle(color: AppColors.rojo, fontSize: 13))),
-              ]),
-            ),
-          ],
           const SizedBox(height: 24),
           SizedBox(
             height: 50,
