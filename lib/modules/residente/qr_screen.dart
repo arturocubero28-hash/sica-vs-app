@@ -628,7 +628,6 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
   bool _enVehiculo    = false;
   DateTime? _validoHasta;
   bool _creando = false;
-  String? _error;
 
   @override
   void dispose() {
@@ -651,14 +650,14 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
 
   Future<void> _crear() async {
     if (_nombreCtrl.text.trim().isEmpty) {
-      setState(() => _error = 'Ingresá el nombre del visitante');
+      ErrorDialog.mostrar(context, 'Ingresá el nombre del visitante');
       return;
     }
     if (_tipo == 'recurrente' && _validoHasta == null) {
-      setState(() => _error = 'Indicá hasta cuándo es válido');
+      ErrorDialog.mostrar(context, 'Indicá hasta cuándo es válido');
       return;
     }
-    setState(() { _creando = true; _error = null; });
+    setState(() { _creando = true; });
     try {
       final body = <String, dynamic>{
         'tipo': _tipo,
@@ -678,9 +677,17 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
       Navigator.pop(context);
       widget.onCreado(visita);
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      // Día 63 — BUG REAL reportado por el usuario: este error (ej. "Tu
+      // servicio está suspendido por falta de pago...", que el backend
+      // devuelve con código 403 cuando la cuenta está bloqueada) antes se
+      // guardaba en una variable de estado local (_error) que NUNCA se
+      // mostraba en ningún lado de este formulario -- a diferencia de
+      // _abrirCrear() (el chequeo ANTES de abrir el formulario), este
+      // segundo chequeo del lado del servidor quedaba completamente
+      // silencioso.
+      ErrorDialog.mostrar(context, e.message);
     } catch (_) {
-      setState(() => _error = 'No se pudo crear el QR');
+      ErrorDialog.mostrar(context, 'No se pudo crear el QR');
     } finally {
       if (mounted) setState(() => _creando = false);
     }
@@ -889,10 +896,6 @@ class _ModalCrearQrState extends State<_ModalCrearQr> {
             const SizedBox(height: 8),
           ],
 
-          if (_error != null) ...[
-            const SizedBox(height: 10),
-            Text(_error!, style: const TextStyle(color: AppColors.rojo, fontSize: 13)),
-          ],
           const SizedBox(height: 18),
 
           SizedBox(width: double.infinity,
