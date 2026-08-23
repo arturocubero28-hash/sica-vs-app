@@ -3,6 +3,7 @@ import '../api/client.dart';
 import '../theme/app_theme.dart';
 import '../modules/shared/role_router.dart';
 import '../api/notificaciones.dart';
+import '../widgets/error_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   // Día 58 (A-2) — mensaje que se muestra al entrar, usado cuando se llega
@@ -20,14 +21,20 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passCtrl     = TextEditingController();
   bool _cargando      = false;
   bool _verPass       = false;
-  String? _error;
 
   @override
   void initState() {
     super.initState();
-    // Si se llegó acá por una expulsión (sesión revocada), mostrar el aviso
-    // ya en el primer frame, como si fuera un error del formulario.
-    if (widget.mensajeInicial != null) _error = widget.mensajeInicial;
+    // Día 63 — antes se guardaba en _error y se mostraba como texto chico
+    // dentro del formulario, fácil de pasar por alto justo en el momento
+    // en que más importa que la persona lo note (fue expulsada de su
+    // sesión). Se muestra con el modal, después del primer frame (no se
+    // puede abrir un diálogo antes de que la pantalla exista).
+    if (widget.mensajeInicial != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ErrorDialog.mostrar(context, widget.mensajeInicial!, titulo: 'Sesión finalizada');
+      });
+    }
   }
 
   // ── Bloqueo por intentos fallidos ──
@@ -86,14 +93,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     if (_estaBloqueado) {
-      setState(() => _error = 'Demasiados intentos. Esperá $_tiempoRestante.');
+      ErrorDialog.mostrar(context, 'Demasiados intentos. Esperá $_tiempoRestante.');
       return;
     }
     if (_emailCtrl.text.trim().isEmpty || _passCtrl.text.isEmpty) {
-      setState(() => _error = 'Completá el correo y la contraseña');
+      ErrorDialog.mostrar(context, 'Completá el correo y la contraseña');
       return;
     }
-    setState(() { _cargando = true; _error = null; });
+    setState(() { _cargando = true; });
     try {
       final res = await AuthApi.login(
         _emailCtrl.text.trim().toLowerCase(),
@@ -115,10 +122,10 @@ class _LoginScreenState extends State<LoginScreen> {
       _intentosFallidos++;
       if (_intentosFallidos >= _maxIntentos) {
         _bloqueadoHasta = DateTime.now().add(const Duration(minutes: _minutosBloqueo));
-        setState(() => _error = 'Demasiados intentos fallidos. Bloqueado por $_minutosBloqueo minutos.');
+        ErrorDialog.mostrar(context, 'Demasiados intentos fallidos. Bloqueado por $_minutosBloqueo minutos.');
       } else {
         final restantes = _maxIntentos - _intentosFallidos;
-        setState(() => _error = '${e.message} ($restantes intentos restantes)');
+        ErrorDialog.mostrar(context, '${e.message} ($restantes intentos restantes)');
       }
     } catch (e) {
       // Día 62 — antes "catch (_)" descartaba el error real por completo,
@@ -128,7 +135,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // real entre paréntesis (ej. "SocketException", "HandshakeException",
       // "TimeoutException") -- da una pista concreta sin exponer detalles
       // técnicos excesivos al residente.
-      setState(() => _error = 'No se pudo conectar. Verificá tu conexión. (${e.runtimeType})');
+      ErrorDialog.mostrar(context, 'No se pudo conectar. Verificá tu conexión. (${e.runtimeType})');
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
@@ -245,24 +252,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
 
-                      if (_error != null) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF0F0),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.rojo.withOpacity(0.4)),
-                          ),
-                          child: Row(children: [
-                            const Icon(Icons.error_outline, color: AppColors.rojo, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(_error!,
-                                style: const TextStyle(color: AppColors.rojo, fontSize: 13))),
-                          ]),
-                        ),
-                      ],
-
                       const SizedBox(height: 16),
 
                       ElevatedButton(
@@ -304,7 +293,6 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
   bool _tokenEnviado = false;
   bool _restableciendo = false;
   bool _completado = false;
-  String? _error;
   String? _devToken; // solo en desarrollo
 
   @override
@@ -317,10 +305,10 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
 
   Future<void> _solicitarRecuperacion() async {
     if (_emailCtrl.text.trim().isEmpty) {
-      setState(() => _error = 'Ingresá tu correo electrónico');
+      ErrorDialog.mostrar(context, 'Ingresá tu correo electrónico');
       return;
     }
-    setState(() { _enviando = true; _error = null; });
+    setState(() { _enviando = true; });
     try {
       final res = await ApiClient.post('/auth/recuperar',
           {'email': _emailCtrl.text.trim().toLowerCase()}, auth: false);
@@ -331,12 +319,12 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
         if (_devToken != null) _tokenCtrl.text = _devToken!;
       });
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      ErrorDialog.mostrar(context, e.message);
     } catch (e) {
       // Día 62 — mismo criterio que el catch de login: mostrar el tipo de
       // error real en vez de descartarlo, para poder diagnosticar sin
       // depender de conectar el teléfono por USB.
-      setState(() => _error = 'No se pudo conectar (${e.runtimeType})');
+      ErrorDialog.mostrar(context, 'No se pudo conectar (${e.runtimeType})');
     } finally {
       if (mounted) setState(() => _enviando = false);
     }
@@ -344,14 +332,14 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
 
   Future<void> _restablecer() async {
     if (_tokenCtrl.text.trim().isEmpty || _passCtrl.text.isEmpty) {
-      setState(() => _error = 'Completá el token y la nueva contraseña');
+      ErrorDialog.mostrar(context, 'Completá el token y la nueva contraseña');
       return;
     }
     if (_passCtrl.text.length < 6) {
-      setState(() => _error = 'La contraseña debe tener al menos 6 caracteres');
+      ErrorDialog.mostrar(context, 'La contraseña debe tener al menos 6 caracteres');
       return;
     }
-    setState(() { _restableciendo = true; _error = null; });
+    setState(() { _restableciendo = true; });
     try {
       await ApiClient.post('/auth/reset', {
         'token': _tokenCtrl.text.trim(),
@@ -359,12 +347,12 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
       }, auth: false);
       setState(() => _completado = true);
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      ErrorDialog.mostrar(context, e.message);
     } catch (e) {
       // Día 62 — mismo criterio que el catch de login: mostrar el tipo de
       // error real en vez de descartarlo, para poder diagnosticar sin
       // depender de conectar el teléfono por USB.
-      setState(() => _error = 'No se pudo conectar (${e.runtimeType})');
+      ErrorDialog.mostrar(context, 'No se pudo conectar (${e.runtimeType})');
     } finally {
       if (mounted) setState(() => _restableciendo = false);
     }
@@ -413,10 +401,6 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
                 prefixIcon: Icon(Icons.email_outlined),
               ),
             ),
-            if (_error != null) ...[
-              const SizedBox(height: 10),
-              Text(_error!, style: const TextStyle(color: AppColors.rojo, fontSize: 13)),
-            ],
             const SizedBox(height: 18),
             SizedBox(width: double.infinity,
               child: ElevatedButton(
@@ -463,10 +447,6 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
                 prefixIcon: Icon(Icons.lock_outline),
               ),
             ),
-            if (_error != null) ...[
-              const SizedBox(height: 10),
-              Text(_error!, style: const TextStyle(color: AppColors.rojo, fontSize: 13)),
-            ],
             const SizedBox(height: 18),
             SizedBox(width: double.infinity,
               child: ElevatedButton(
