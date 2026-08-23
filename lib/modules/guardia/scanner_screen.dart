@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -158,6 +159,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
       final res = await ApiClient.post('/visitas/qr/validar', {'token': token.trim()});
       final data = res as Map<String, dynamic>;
       if (!mounted) return;
+      // Día 63 — pedido del usuario: confirmación sensorial al escanear un
+      // código válido, como un lector de supermercado. Vibración +
+      // sonido del sistema, sin agregar ninguna librería nueva ni archivo
+      // de audio propio -- ambos vienen incluidos en Flutter
+      // (package:flutter/services.dart). La vibración es la señal más
+      // confiable entre las dos (el sonido del sistema depende de la
+      // configuración de volumen/silencio del teléfono del guardia, la
+      // vibración se siente igual).
+      HapticFeedback.mediumImpact();
+      SystemSound.play(SystemSoundType.click);
       setState(() {
         _visita = data['visita'] as Map<String, dynamic>;
         _direccion = data['direccion_sugerida']?.toString() ?? 'entrada';
