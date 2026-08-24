@@ -106,6 +106,23 @@ class AuthStorage {
   static const _rolKey   = 'sica_rol';
   static const _userKey  = 'sica_user';
 
+  // Día 63 — pedido del usuario: el guardia debe confirmar su punto de
+  // acceso en cada INICIO DE SESIÓN real (escribir usuario/contraseña),
+  // no solo la primera vez -- pero la app arranca directo a la pantalla
+  // de guardia (sin pasar por el login) cuando ya hay un token guardado
+  // válido, algo que pasa cada vez que se REABRE la app, no solo cuando
+  // se loguea de verdad. Sin esta distinción, se preguntaría en cada
+  // apertura de la app, mucho más seguido de lo que se busca.
+  //
+  // Esta marca solo vive en memoria (no se guarda en disco) -- se pone
+  // en true justo cuando login_screen.dart confirma un login exitoso, y
+  // GuardiaShell la consume (la lee y la vuelve a poner en false) para
+  // decidir si debe forzar la pantalla de selección. Si la app se cierra
+  // del todo y se reabre con la sesión ya activa, esta marca nace en
+  // false de nuevo -- comportamiento correcto, un reabrir normal no debe
+  // forzar la pregunta.
+  static bool esLoginFresco = false;
+
   static Future<void> guardar(String token, String rol, Map user) async {
     await _secure.write(key: _tokenKey, value: token);
     final prefs = await SharedPreferences.getInstance();

@@ -37,11 +37,23 @@ class _GuardiaShellState extends State<GuardiaShell> {
   }
 
   /// ACCESS-04 (Auditoría Día 35): el guardia debe elegir su punto de
-  /// acceso antes de poder usar la app. Si ya lo tiene guardado del
-  /// servidor, se usa directo; si no, se muestra la pantalla bloqueante.
+  /// acceso antes de poder usar la app.
+  ///
+  /// Día 63 — ajustado a pedido del usuario: antes, una vez elegido, se
+  /// reutilizaba para siempre sin volver a preguntar, incluso en logins
+  /// reales distintos (riesgo real: un guardia que rota de puesto entre
+  /// turnos podía quedar "pegado" a un punto viejo sin darse cuenta, en
+  /// un dispositivo compartido entre varios guardias). Ahora se vuelve a
+  /// preguntar en cada INICIO DE SESIÓN real (AuthStorage.esLoginFresco),
+  /// pero se sigue recordando dentro del mismo arranque de la app (si
+  /// simplemente se reabre con la sesión ya activa, no se pregunta de
+  /// nuevo -- eso seguiría siendo molesto sin aportar nada).
   Future<void> _verificarPuntoAcceso() async {
+    final loginFresco = AuthStorage.esLoginFresco;
+    AuthStorage.esLoginFresco = false; // se consume una sola vez
+
     final punto = _usuario?['punto_acceso_actual']?.toString();
-    if (punto != null && punto.isNotEmpty) {
+    if (!loginFresco && punto != null && punto.isNotEmpty) {
       if (mounted) setState(() { _puntoAcceso = punto; _verificandoPunto = false; });
       return;
     }

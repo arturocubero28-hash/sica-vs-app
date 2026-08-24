@@ -111,6 +111,9 @@ class _LoginScreenState extends State<LoginScreen> {
       final rol   = user['rol'] as String;
 
       await AuthStorage.guardar(token, rol, user);
+      // Día 63: marca que este arranque de GuardiaShell viene de un login
+      // real (usuario/contraseña), no de una simple reapertura de la app.
+      AuthStorage.esLoginFresco = true;
       await NotificacionesService.registrarToken();
       _cargarResidencialEnSegundoPlano(); // no bloquea la navegación
 
