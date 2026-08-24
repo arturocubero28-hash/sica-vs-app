@@ -167,7 +167,15 @@ class _ScannerScreenState extends State<ScannerScreen> {
       // confiable entre las dos (el sonido del sistema depende de la
       // configuración de volumen/silencio del teléfono del guardia, la
       // vibración se siente igual).
-      HapticFeedback.mediumImpact();
+      // Día 63 — corregido: mediumImpact() (y light/heavyImpact,
+      // selectionClick) usan el mecanismo de "haptic feedback" de Android,
+      // pensado para acompañar un TOQUE ACTIVO del dedo en pantalla -- si
+      // se llama sin un toque real en curso (como acá, después de que el
+      // escaneo ya terminó), Android puede ignorarlo en silencio, sin
+      // ningún error. vibrate() usa el servicio de vibración real del
+      // sistema en vez del mecanismo de feedback táctil, así que no
+      // depende de que haya un toque activo.
+      HapticFeedback.vibrate();
       SystemSound.play(SystemSoundType.click);
       setState(() {
         _visita = data['visita'] as Map<String, dynamic>;

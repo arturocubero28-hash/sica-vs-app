@@ -160,7 +160,12 @@ class AuthStorage {
   ///   await AuthStorage.cerrarSesion();
   static Future<void> cerrarSesion() async {
     try {
-      await ApiClient.post('/auth/logout', {});
+      // Día 63 — expulsarSi401: false. Ya estamos cerrando sesión a
+      // propósito; si el servidor responde 401 (token ya vencido, algo
+      // normal si hacía rato que no se usaba la app), no corresponde
+      // mostrar "tu sesión se cerró desde otro dispositivo" -- eso es
+      // engañoso en un logout que el propio usuario inició.
+      await ApiClient.post('/auth/logout', {}, expulsarSi401: false);
     } catch (_) {
       // Sin conexión o token ya inválido — no bloquear el logout local
     }
@@ -191,12 +196,13 @@ class ApiClient {
     return _parse(res);
   }
 
-  static Future<dynamic> post(String path, Map body, {bool auth = true}) async {
+  static Future<dynamic> post(String path, Map body,
+      {bool auth = true, bool expulsarSi401 = true}) async {
     final res = await http
         .post(Uri.parse('${ApiConfig.baseUrl}$path'),
             headers: await _headers(auth: auth), body: jsonEncode(body))
         .timeout(ApiConfig.timeout);
-    return _parse(res);
+    return _parse(res, expulsarSi401: expulsarSi401);
   }
 
   static Future<dynamic> delete(String path) async {
@@ -289,7 +295,7 @@ class ApiClient {
   // o 3 llamadas al abrir). Se resetea cuando el usuario vuelve a loguearse.
   static bool _expulsando = false;
 
-  static dynamic _parse(http.Response res) {
+  static dynamic _parse(http.Response res, {bool expulsarSi401 = true}) {
     final body = jsonDecode(utf8.decode(res.bodyBytes));
     if (res.statusCode >= 200 && res.statusCode < 300) {
       return body['data'] ?? body;
@@ -298,7 +304,21 @@ class ApiClient {
     // dispositivo/el panel web — AUTH-02). Antes solo se limpiaba el token
     // local sin sacar al usuario de la pantalla en la que estaba: se quedaba
     // viendo errores de conexión en bucle. Ahora se expulsa al login.
-    if (res.statusCode == 401) {
+    //
+    // Día 63 — BUG REAL encontrado: esta expulsión automática se disparaba
+    // TAMBIÉN durante un cierre de sesión NORMAL e intencional, si el token
+    // ya estaba vencido en el momento de tocar "Cerrar sesión" (algo
+    // frecuente si el guardia llevaba un rato sin usar la app). El
+    // resultado: la pantalla mostraba "sesión cerrada desde otro
+    // dispositivo" en un logout completamente normal, y encima la
+    // navegación correcta (guardia_shell._logout, sin mensaje) nunca
+    // llegaba a ejecutarse -- el widget ya no estaba montado porque ESTA
+    // expulsión ya había reemplazado toda la navegación primero. Se agrega
+    // expulsarSi401 para que un logout intencional pueda pedir que NO se
+    // dispare este efecto secundario -- si ya estás cerrando sesión a
+    // propósito, terminar en el login es exactamente lo esperado, sin
+    // importar la causa exacta del 401.
+    if (res.statusCode == 401 && expulsarSi401) {
       _expulsarPorSesionInvalida();
     }
     final err = body['error'];
