@@ -4,6 +4,7 @@ import '../api/bloqueo_biometrico.dart';
 import '../api/permisos.dart';
 import '../theme/app_theme.dart';
 import '../modules/shared/role_router.dart';
+import 'consentimiento_screen.dart';
 import 'login_screen.dart';
 
 /// Pantalla de inicio: verifica si ya hay sesión guardada.
@@ -43,8 +44,22 @@ class _SplashScreenState extends State<SplashScreen> {
     final rol   = await AuthStorage.getRol();
 
     if (token == null || rol == null) {
-      Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginScreen()));
+      // Día 64 — chequeo de consentimiento: si el usuario nunca aceptó los
+      // términos (primera apertura de la app, o si los documentos se
+      // actualizaron), mostrar la pantalla de consentimiento antes del login.
+      final necesita = await ConsentimientoScreen.necesitaConsentimiento();
+      if (!mounted) return;
+      if (necesita) {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(
+          builder: (_) => ConsentimientoScreen(
+            onAceptado: () => Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const LoginScreen())),
+          ),
+        ));
+      } else {
+        Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const LoginScreen()));
+      }
       return;
     }
 
@@ -57,8 +72,19 @@ class _SplashScreenState extends State<SplashScreen> {
       if (!mounted) return;
       // El token expiró o fue revocado — ir al login
       if (e.code == 'no_autorizado' || e.code == 'ERROR') {
-        Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const LoginScreen()));
+        final necesita = await ConsentimientoScreen.necesitaConsentimiento();
+        if (!mounted) return;
+        if (necesita) {
+          Navigator.of(context).pushReplacement(MaterialPageRoute(
+            builder: (_) => ConsentimientoScreen(
+              onAceptado: () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const LoginScreen())),
+            ),
+          ));
+        } else {
+          Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const LoginScreen()));
+        }
         return;
       }
     } catch (_) {
