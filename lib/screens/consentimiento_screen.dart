@@ -108,7 +108,7 @@ class _ConsentimientoScreenState extends State<ConsentimientoScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Documentos legales',
+                    Text('Documentos legales',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.azul)),
                     const SizedBox(height: 6),
                     Text(
@@ -226,14 +226,14 @@ class _CheckboxDocumento extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(titulo,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
                               color: AppColors.azul,
                               decoration: TextDecoration.underline,
                             )),
                         ),
-                        const Icon(Icons.open_in_new, size: 14, color: AppColors.naranja),
+                        Icon(Icons.open_in_new, size: 14, color: AppColors.naranja),
                       ],
                     ),
                   ),
