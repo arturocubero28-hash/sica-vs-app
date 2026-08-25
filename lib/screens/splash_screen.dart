@@ -51,10 +51,7 @@ class _SplashScreenState extends State<SplashScreen> {
       if (!mounted) return;
       if (necesita) {
         Navigator.of(context).pushReplacement(MaterialPageRoute(
-          builder: (_) => ConsentimientoScreen(
-            onAceptado: () => Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const LoginScreen())),
-          ),
+          builder: (_) => const ConsentimientoScreen(),
         ));
       } else {
         Navigator.of(context).pushReplacement(
@@ -76,10 +73,7 @@ class _SplashScreenState extends State<SplashScreen> {
         if (!mounted) return;
         if (necesita) {
           Navigator.of(context).pushReplacement(MaterialPageRoute(
-            builder: (_) => ConsentimientoScreen(
-              onAceptado: () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const LoginScreen())),
-            ),
+            builder: (_) => const ConsentimientoScreen(),
           ));
         } else {
           Navigator.of(context).pushReplacement(

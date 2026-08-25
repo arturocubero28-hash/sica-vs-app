@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
+import 'login_screen.dart';
 
 /// Día 64 — pantalla de consentimiento de Política de Privacidad y Términos
 /// y Condiciones. Se muestra UNA SOLA VEZ, antes de llegar al login, la
@@ -9,12 +10,13 @@ import '../theme/app_theme.dart';
 /// y hay que volver a pedir el consentimiento). Una vez aceptada, queda
 /// guardado en el almacenamiento seguro del dispositivo.
 ///
-/// Requerimiento real de Play Store y App Store para apps que recopilan
-/// datos personales (nombre, correo, teléfono, registros de acceso,
-/// fotografías de visitantes, comprobantes de pago).
+/// IMPORTANTE: esta pantalla navega directamente a LoginScreen usando su
+/// propio context (no un callback del padre). El context del splash ya no
+/// existe en el árbol de widgets cuando el usuario pulsa "Acepto" -- usar
+/// un callback capturado desde el splash causaba que la app quedara pegada
+/// sin avanzar (el Navigator del splash era inválido para ese momento).
 class ConsentimientoScreen extends StatefulWidget {
-  final VoidCallback onAceptado;
-  const ConsentimientoScreen({super.key, required this.onAceptado});
+  const ConsentimientoScreen({super.key});
 
   @override
   State<ConsentimientoScreen> createState() => _ConsentimientoScreenState();
@@ -60,7 +62,12 @@ class _ConsentimientoScreenState extends State<ConsentimientoScreen> {
     if (!_puedeContiuar) return;
     setState(() => _guardando = true);
     await ConsentimientoScreen.marcarAceptado();
-    widget.onAceptado();
+    if (!mounted) return;
+    // Usa el context propio de esta pantalla, que sí está vivo en este
+    // momento -- no el del splash (que ya fue reemplazado y es inválido).
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
   }
 
   @override
