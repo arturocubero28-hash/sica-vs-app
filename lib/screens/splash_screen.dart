@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../api/client.dart';
 import '../api/bloqueo_biometrico.dart';
+import '../api/permisos.dart';
 import '../theme/app_theme.dart';
 import '../modules/shared/role_router.dart';
 import 'login_screen.dart';
@@ -26,6 +27,16 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _verificar() async {
     await Future.delayed(const Duration(milliseconds: 1200));
+    if (!mounted) return;
+
+    // Día 64 — pedido del usuario: pedir el permiso de cámara al arrancar
+    // la app (no solo cuando el guardia entra al escáner). De lo contrario,
+    // el módulo del guardia arrancaba con la cámara denegada porque el
+    // permiso recién se pedía cuando ya necesitaba usarse, demasiado tarde
+    // para que Android pudiera mostrarlo sin interrumpir el flujo.
+    // Se pide silenciosamente (sin diálogo propio): si Android muestra su
+    // pop-up de permiso, bienvenido; si ya fue concedido, no hace nada.
+    await PermisosService.pedirCamara();
     if (!mounted) return;
 
     final token = await AuthStorage.getToken();

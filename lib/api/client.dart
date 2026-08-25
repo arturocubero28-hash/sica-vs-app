@@ -383,6 +383,13 @@ class AuthApi {
       '/auth/login',
       {'email': email, 'password': password},
       auth: false,
+      // Día 64 — BUG REAL: un 401 por contraseña incorrecta disparaba la
+      // expulsión automática ("sesión cerrada desde otro dispositivo") ANTES
+      // de que el manejador de errores del login pudiera procesar la
+      // respuesta. Con expulsarSi401: false, el 401 se convierte en la
+      // ApiException normal que login_screen.dart ya maneja correctamente
+      // (contador de intentos, mensaje de error real, etc.).
+      expulsarSi401: false,
     );
     return res as Map<String, dynamic>;
   }
