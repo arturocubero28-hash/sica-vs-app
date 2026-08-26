@@ -189,13 +189,11 @@ class AuthStorage {
     }
     ResidencialCache.clear();
     await limpiar();
-    // Día 65 — también limpiar las credenciales biométricas guardadas
-    // (email + contraseña) para que el próximo usuario del dispositivo
-    // deba autenticarse con sus propias credenciales.
-    try {
-      final creds = credenciales_guardadas.CredencialesGuardadas.limpiar;
-      await creds();
-    } catch (_) {}
+    // Día 65 — las credenciales biométricas (email + contraseña guardados)
+    // NO se borran al cerrar sesión manual. El usuario eligió guardarlas
+    // para no tener que escribirlas cada vez — cerrar sesión no significa
+    // que quiera desactivar esa preferencia. Solo se borran si el usuario
+    // desactiva la biometría explícitamente desde la configuración.
   }
 }
 
