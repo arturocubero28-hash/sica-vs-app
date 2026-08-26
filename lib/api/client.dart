@@ -10,6 +10,7 @@ import 'models.dart';
 import '../main.dart' show navigatorKey;
 import '../theme/app_theme.dart';
 import '../screens/login_screen.dart';
+import 'credenciales_guardadas.dart' as credenciales_guardadas;
 
 // ── Nombre/logo de la residencial (Día 46) ─────────────────────────────────────
 /// Caché del nombre y logo de la residencial del usuario logueado.
@@ -188,6 +189,13 @@ class AuthStorage {
     }
     ResidencialCache.clear();
     await limpiar();
+    // Día 65 — también limpiar las credenciales biométricas guardadas
+    // (email + contraseña) para que el próximo usuario del dispositivo
+    // deba autenticarse con sus propias credenciales.
+    try {
+      final creds = credenciales_guardadas.CredencialesGuardadas.limpiar;
+      await creds();
+    } catch (_) {}
   }
 }
 

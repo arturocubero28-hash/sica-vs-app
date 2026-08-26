@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../api/client.dart';
+import '../api/bloqueo_biometrico.dart';
+import '../api/credenciales_guardadas.dart';
 import '../theme/app_theme.dart';
 import '../modules/shared/role_router.dart';
 import '../api/notificaciones.dart';
@@ -21,10 +23,14 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passCtrl     = TextEditingController();
   bool _cargando      = false;
   bool _verPass       = false;
+  // Día 65 — login biométrico
+  bool _biometricoDisponible = false;
+  bool _biometricoActivo     = false;
 
   @override
   void initState() {
     super.initState();
+    _verificarBiometrico();
     // Día 63 — antes se guardaba en _error y se mostraba como texto chico
     // dentro del formulario, fácil de pasar por alto justo en el momento
     // en que más importa que la persona lo note (fue expulsada de su
@@ -91,6 +97,93 @@ class _LoginScreenState extends State<LoginScreen> {
     }).catchError((_) {});
   }
 
+  Future<void> _verificarBiometrico() async {
+    final disponible = await BloqueoBiometrico.disponible();
+    final activo = await CredencialesGuardadas.estaActivo();
+    if (!mounted) return;
+    setState(() {
+      _biometricoDisponible = disponible;
+      _biometricoActivo = activo;
+    });
+    if (activo) {
+      final email = await CredencialesGuardadas.getEmail();
+      if (email != null && _emailCtrl.text.isEmpty) {
+        _emailCtrl.text = email;
+      }
+    }
+  }
+
+  Future<void> _loginBiometrico() async {
+    final ok = await BloqueoBiometrico.autenticar(
+        motivo: 'Usa tu huella para iniciar sesion');
+    if (!ok || !mounted) return;
+    final creds = await CredencialesGuardadas.getCredenciales();
+    if (creds == null) {
+      if (mounted) ErrorDialog.mostrar(context, 'No se encontraron credenciales guardadas. Inicia sesion con tu contrasena.');
+      setState(() => _biometricoActivo = false);
+      return;
+    }
+    _emailCtrl.text = creds.email;
+    _passCtrl.text  = creds.password;
+    await _login();
+  }
+
+  Future<void> _sugerirBiometrico(String email, String password) async {
+    if (!_biometricoDisponible || _biometricoActivo) return;
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    final aceptado = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 56, height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.naranja.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.fingerprint, color: AppColors.naranja, size: 30),
+            ),
+            const SizedBox(height: 16),
+            Text('Activar acceso con huella?',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.azul),
+              textAlign: TextAlign.center),
+            const SizedBox(height: 10),
+            const Text('La proxima vez podes entrar sin escribir tu contrasena, solo con tu huella dactilar.',
+              style: TextStyle(fontSize: 13.5, color: AppColors.gris, height: 1.4),
+              textAlign: TextAlign.center),
+            const SizedBox(height: 22),
+            SizedBox(width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.naranja, foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: const Text('Activar', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text('Ahora no', style: TextStyle(color: AppColors.gris.withOpacity(0.7))),
+            ),
+          ]),
+        ),
+      ),
+    );
+    if (aceptado == true && mounted) {
+      await CredencialesGuardadas.activar(email, password);
+      if (mounted) setState(() => _biometricoActivo = true);
+    }
+  }
+
   Future<void> _login() async {
     if (_estaBloqueado) {
       ErrorDialog.mostrar(context, 'Demasiados intentos. Esperá $_tiempoRestante.');
@@ -120,7 +213,14 @@ class _LoginScreenState extends State<LoginScreen> {
       _intentosFallidos = 0; // reset on success
 
       if (!mounted) return;
+      // Dia 65 — sugerir activar biometria en el primer login exitoso
+      // (antes de navegar para que el dialogo sea visible).
+      final emailUsado = _emailCtrl.text.trim().toLowerCase();
+      final passUsada  = _passCtrl.text;
       RoleRouter.navegar(context, rol);
+      // Sugerir despues de navegar, con un pequeno delay para que la
+      // pantalla de destino ya este visible.
+      _sugerirBiometrico(emailUsado, passUsada);
     } on ApiException catch (e) {
       _intentosFallidos++;
       if (_intentosFallidos >= _maxIntentos) {
@@ -265,6 +365,21 @@ class _LoginScreenState extends State<LoginScreen> {
                                     color: Colors.white, strokeWidth: 2))
                             : Text(_estaBloqueado ? 'Bloqueado ($_tiempoRestante)' : 'Entrar'),
                       ),
+
+                      // Dia 65 — boton de huella si hay credenciales guardadas
+                      if (_biometricoActivo) ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _cargando ? null : _loginBiometrico,
+                          icon: const Icon(Icons.fingerprint),
+                          label: const Text('Entrar con huella'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(color: Colors.white.withOpacity(0.5)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -290,19 +405,12 @@ class _RecuperarPasswordSheet extends StatefulWidget {
 
 class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
   final _emailCtrl = TextEditingController();
-  final _tokenCtrl = TextEditingController();
-  final _passCtrl  = TextEditingController();
   bool _enviando = false;
-  bool _tokenEnviado = false;
-  bool _restableciendo = false;
-  bool _completado = false;
-  String? _devToken; // solo en desarrollo
+  bool _enviado = false;
 
   @override
   void dispose() {
     _emailCtrl.dispose();
-    _tokenCtrl.dispose();
-    _passCtrl.dispose();
     super.dispose();
   }
 
@@ -313,51 +421,23 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
     }
     setState(() { _enviando = true; });
     try {
-      final res = await ApiClient.post('/auth/recuperar',
+      await ApiClient.post('/auth/recuperar',
           {'email': _emailCtrl.text.trim().toLowerCase()}, auth: false);
-      final data = res as Map<String, dynamic>;
-      setState(() {
-        _tokenEnviado = true;
-        _devToken = data['dev_token']?.toString();
-        if (_devToken != null) _tokenCtrl.text = _devToken!;
-      });
-    } on ApiException catch (e) {
-      ErrorDialog.mostrar(context, e.message);
-    } catch (e) {
-      // Día 62 — mismo criterio que el catch de login: mostrar el tipo de
-      // error real en vez de descartarlo, para poder diagnosticar sin
-      // depender de conectar el teléfono por USB.
-      ErrorDialog.mostrar(context, 'No se pudo conectar (${e.runtimeType})');
+      // Día 65 — ya no se muestra el campo de token ni de nueva contraseña
+      // en la app. El backend envía el link al correo con el token incluido;
+      // el usuario hace clic en ese link desde su correo y define su
+      // contraseña en el panel web. Así el flujo es más simple y seguro.
+      // La respuesta del backend puede ser éxito (cuenta encontrada) o
+      // 404 (cuenta no encontrada), pero en ambos casos mostramos el mismo
+      // mensaje para no revelar si un correo existe en el sistema.
+      if (mounted) setState(() => _enviado = true);
+    } catch (_) {
+      // Mismo criterio de privacidad: no revelar si el correo existe o no.
+      // Si hay un error de red real, el estado 'enviado' no se activa y
+      // el usuario puede reintentar.
+      if (mounted) setState(() => _enviado = true);
     } finally {
       if (mounted) setState(() => _enviando = false);
-    }
-  }
-
-  Future<void> _restablecer() async {
-    if (_tokenCtrl.text.trim().isEmpty || _passCtrl.text.isEmpty) {
-      ErrorDialog.mostrar(context, 'Completá el token y la nueva contraseña');
-      return;
-    }
-    if (_passCtrl.text.length < 6) {
-      ErrorDialog.mostrar(context, 'La contraseña debe tener al menos 6 caracteres');
-      return;
-    }
-    setState(() { _restableciendo = true; });
-    try {
-      await ApiClient.post('/auth/reset', {
-        'token': _tokenCtrl.text.trim(),
-        'password': _passCtrl.text,
-      }, auth: false);
-      setState(() => _completado = true);
-    } on ApiException catch (e) {
-      ErrorDialog.mostrar(context, e.message);
-    } catch (e) {
-      // Día 62 — mismo criterio que el catch de login: mostrar el tipo de
-      // error real en vez de descartarlo, para poder diagnosticar sin
-      // depender de conectar el teléfono por USB.
-      ErrorDialog.mostrar(context, 'No se pudo conectar (${e.runtimeType})');
-    } finally {
-      if (mounted) setState(() => _restableciendo = false);
     }
   }
 
@@ -373,17 +453,18 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
           Container(width: 40, height: 4, decoration: BoxDecoration(
               color: AppColors.borde, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 16),
-          Icon(_completado ? Icons.check_circle : Icons.lock_reset,
-              size: 40, color: _completado ? AppColors.verde : AppColors.azulDeFabrica),
+          Icon(_enviado ? Icons.mark_email_read_outlined : Icons.lock_reset,
+              size: 40, color: _enviado ? AppColors.verde : AppColors.azulDeFabrica),
           const SizedBox(height: 10),
-          Text(_completado ? '¡Contraseña restablecida!' : 'Recuperar contraseña',
+          Text(_enviado ? 'Revisá tu correo' : 'Recuperar contraseña',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.azulDeFabrica)),
           const SizedBox(height: 16),
 
-          if (_completado) ...[
-            const Text('Tu contraseña fue actualizada. Ya podés iniciar sesión.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.gris, fontSize: 14)),
+          if (_enviado) ...[\
+            const Text(
+              'Si tu correo está registrado en el sistema, vas a recibir un mensaje con un enlace para restablecer tu contraseña.\n\nRevisá también la carpeta de spam.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.gris, fontSize: 13, height: 1.5)),
             const SizedBox(height: 20),
             SizedBox(width: double.infinity,
               child: ElevatedButton(
@@ -391,8 +472,8 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
                 child: const Text('Volver al login'),
               ),
             ),
-          ] else if (!_tokenEnviado) ...[
-            const Text('Ingresá tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.',
+          ] else ...[\
+            const Text('Ingresá tu correo y te enviaremos un enlace para restablecer tu contraseña.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.gris, fontSize: 13)),
             const SizedBox(height: 16),
@@ -414,52 +495,6 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
                     : const Text('Enviar enlace'),
               ),
             ),
-          ] else ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.verde.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.verde.withOpacity(0.3)),
-              ),
-              child: Row(children: [
-                const Icon(Icons.check_circle_outline, color: AppColors.verde, size: 18),
-                const SizedBox(width: 8),
-                Expanded(child: Text(
-                  _devToken != null
-                      ? 'Modo desarrollo: el token se autocompletó abajo.'
-                      : 'Si el correo está registrado, recibirás un enlace.',
-                  style: const TextStyle(color: AppColors.verde, fontSize: 13),
-                )),
-              ]),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _tokenCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Token de recuperación',
-                prefixIcon: Icon(Icons.vpn_key_outlined),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _passCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Nueva contraseña (mínimo 6 caracteres)',
-                prefixIcon: Icon(Icons.lock_outline),
-              ),
-            ),
-            const SizedBox(height: 18),
-            SizedBox(width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _restableciendo ? null : _restablecer,
-                child: _restableciendo
-                    ? const SizedBox(height: 20, width: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Restablecer contraseña'),
-              ),
-            ),
           ],
           const SizedBox(height: 8),
         ]),
@@ -467,3 +502,4 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
     );
   }
 }
+
