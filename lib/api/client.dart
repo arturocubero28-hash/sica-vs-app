@@ -346,25 +346,34 @@ class ApiClient {
   }
 
   static void _expulsarPorSesionInvalida() {
-    AuthStorage.limpiar(); // async fire-and-forget — no bloquea
     if (_expulsando) return; // ya se está navegando al login, no repetir
     _expulsando = true;
-    // Día 57 (A-3) — no heredar los colores de la residencial de la sesión
-    // que se acaba de invalidar.
-    AppColors.restablecerFabrica();
-    final nav = navigatorKey.currentState;
-    if (nav != null) {
-      nav.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen(
-          mensajeInicial: 'Tu sesión se cerró desde otro dispositivo. Iniciá sesión de nuevo.',
-        )),
-        (_) => false,
-      );
-    }
-    // Se rearma para la próxima vez que haga falta expulsar, después de un
-    // margen breve — suficiente para que las peticiones concurrentes de la
-    // misma tanda (que ya dispararon el catch) no vuelvan a navegar.
-    Future.delayed(const Duration(seconds: 2), () => _expulsando = false);
+    // Día 65 — limpiar se hace ANTES de navegar y se espera que termine.
+    // Antes era fire-and-forget, lo que causaba una condición de carrera:
+    // si el usuario escribía sus credenciales antes de que limpiar()
+    // terminara, el token nuevo podía borrarse inmediatamente después de
+    // guardarse — contraseña correcta que parecía rechazada.
+    AuthStorage.limpiar().then((_) {
+      // Día 57 (A-3) — no heredar los colores de la residencial de la
+      // sesión que se acaba de invalidar.
+      AppColors.restablecerFabrica();
+      final nav = navigatorKey.currentState;
+      if (nav != null) {
+        nav.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen(
+            // Día 65 — mensaje más honesto: el token puede haber expirado
+            // naturalmente (inactividad, vencimiento del JWT), no
+            // necesariamente porque alguien cerró la sesión desde otro
+            // dispositivo.
+            mensajeInicial: 'Tu sesión venció. Iniciá sesión de nuevo.',
+          )),
+          (_) => false,
+        );
+      }
+      // Se rearma después de que la navegación se completó, no con un
+      // delay fijo arbitrario.
+      _expulsando = false;
+    });
   }
 }
 

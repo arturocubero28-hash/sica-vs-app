@@ -20,7 +20,11 @@ class ErrorDialog {
   }) {
     return showDialog(
       context: context,
-      builder: (_) => Dialog(
+      // Día 65 — barrierDismissible: true permite cerrar tocando fuera,
+      // como respaldo al botón "Aceptar" en caso de que el context del
+      // dialog quede huérfano (ver abajo).
+      barrierDismissible: true,
+      builder: (dialogContext) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
@@ -52,7 +56,24 @@ class ErrorDialog {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () {
+                    // Día 65 — BUG REAL: cuando _expulsarPorSesionInvalida()
+                    // llama a nav.pushAndRemoveUntil(), limpia toda la pila
+                    // de navegación y el contexto del dialog queda HUÉRFANO
+                    // (el árbol de widgets donde existía ya no está). En ese
+                    // caso, Navigator.of(dialogContext).pop() no encuentra
+                    // ningún navigator válido y no hace nada -- el diálogo
+                    // se ve, el botón responde, pero no se cierra.
+                    //
+                    // Fix: intentar primero con el navigator del propio
+                    // dialog (caso normal); si no puede hacer pop, usar el
+                    // navigator raíz global (navigatorKey) que siempre
+                    // existe independientemente del estado de la pila.
+                    final nav = Navigator.of(dialogContext, rootNavigator: true);
+                    if (nav.canPop()) {
+                      nav.pop();
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.naranja,
                     foregroundColor: Colors.white,
