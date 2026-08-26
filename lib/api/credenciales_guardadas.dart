@@ -27,10 +27,12 @@ class CredencialesGuardadas {
   static const _keyPass  = 'sica_cred_pass';
   static const _keyActivo = 'sica_cred_biometrico_activo';
 
-  /// ¿Hay credenciales guardadas y el usuario activó el login biométrico?
+  /// ¿Hay credenciales guardadas para el login biométrico?
+  /// Dia 66 — simplificado: si hay email guardado, el login biometrico
+  /// esta activo. El flag _keyActivo era redundante y causaba que
+  /// estaActivo() devolviera false aunque el email si estuviera guardado
+  /// (por problemas de timing al escribir multiples claves seguidas).
   static Future<bool> estaActivo() async {
-    final activo = await _secure.read(key: _keyActivo);
-    if (activo != '1') return false;
     final email = await _secure.read(key: _keyEmail);
     return email != null && email.isNotEmpty;
   }
