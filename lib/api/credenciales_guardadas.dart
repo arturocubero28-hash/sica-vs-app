@@ -1,5 +1,5 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'bloqueo_biometrico.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Día 65 — credenciales guardadas para login biométrico.
 ///
@@ -36,12 +36,16 @@ class CredencialesGuardadas {
   }
 
   /// Guardar credenciales y activar el login biométrico.
+  /// NO pide huella — el usuario ya se autenticó con su contraseña.
   static Future<void> activar(String email, String password) async {
     await _secure.write(key: _keyEmail, value: email);
     await _secure.write(key: _keyPass,  value: password);
     await _secure.write(key: _keyActivo, value: '1');
-    // También activar el bloqueo biométrico de la app (pantalla al abrir).
-    await BloqueoBiometrico.activar(true);
+    // Activar también el bloqueo biométrico de la app (pantalla al abrir)
+    // directamente en SharedPreferences, sin pedir la huella de nuevo
+    // (el usuario ya se autenticó con su contraseña en el login).
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('bloqueo_biometrico_activo', true);
   }
 
   /// Recuperar el email guardado (para mostrarlo en el formulario).
