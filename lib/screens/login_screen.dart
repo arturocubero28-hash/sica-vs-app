@@ -460,7 +460,7 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.azulDeFabrica)),
           const SizedBox(height: 16),
 
-          if (_enviado) ...[\
+          if (_enviado) ...[
             const Text(
               'Si tu correo está registrado en el sistema, vas a recibir un mensaje con un enlace para restablecer tu contraseña.\n\nRevisá también la carpeta de spam.',
               textAlign: TextAlign.center,
@@ -472,7 +472,7 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
                 child: const Text('Volver al login'),
               ),
             ),
-          ] else ...[\
+          ] else ...[
             const Text('Ingresá tu correo y te enviaremos un enlace para restablecer tu contraseña.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.gris, fontSize: 13)),
