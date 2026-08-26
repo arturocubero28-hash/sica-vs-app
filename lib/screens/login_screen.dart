@@ -213,14 +213,17 @@ class _LoginScreenState extends State<LoginScreen> {
       _intentosFallidos = 0; // reset on success
 
       if (!mounted) return;
-      // Dia 65 — sugerir activar biometria en el primer login exitoso
-      // (antes de navegar para que el dialogo sea visible).
+      // Dia 66 — sugerir activar biometria ANTES de navegar.
+      // RoleRouter.navegar() usa pushReplacement, destruyendo el context
+      // del login. Si _sugerirBiometrico se llamaba despues, showDialog()
+      // fallaba silenciosamente y activar() nunca se ejecutaba -- por eso
+      // al cerrar sesion no aparecia el boton de huella ni se recordaba
+      // el email.
       final emailUsado = _emailCtrl.text.trim().toLowerCase();
       final passUsada  = _passCtrl.text;
+      await _sugerirBiometrico(emailUsado, passUsada);
+      if (!mounted) return;
       RoleRouter.navegar(context, rol);
-      // Sugerir despues de navegar, con un pequeno delay para que la
-      // pantalla de destino ya este visible.
-      _sugerirBiometrico(emailUsado, passUsada);
     } on ApiException catch (e) {
       _intentosFallidos++;
       if (_intentosFallidos >= _maxIntentos) {
