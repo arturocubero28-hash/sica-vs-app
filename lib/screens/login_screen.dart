@@ -26,6 +26,8 @@ class _LoginScreenState extends State<LoginScreen> {
   // Día 65 — login biométrico
   bool _biometricoDisponible = false;
   bool _biometricoActivo     = false;
+  // Día 66 — diagnóstico temporal para entender por qué no aparece el botón
+  String _diagBio = 'sin verificar';
 
   @override
   void initState() {
@@ -100,10 +102,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _verificarBiometrico() async {
     final disponible = await BloqueoBiometrico.disponible();
     final activo = await CredencialesGuardadas.estaActivo();
+    final emailGuardado = await CredencialesGuardadas.getEmail();
     if (!mounted) return;
     setState(() {
       _biometricoDisponible = disponible;
       _biometricoActivo = activo;
+      _diagBio = 'disp=$disponible act=$activo email=${emailGuardado ?? "NULL"}';
     });
     if (activo) {
       final email = await CredencialesGuardadas.getEmail();
@@ -389,6 +393,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
                 Text('v1.0.0',
                     style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
+                // Día 66 — diagnóstico temporal, quitar cuando se resuelva
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Text(_diagBio,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.amber.withOpacity(0.9), fontSize: 10)),
+                ),
               ],
             ),
           ),
