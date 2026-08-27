@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
@@ -22,21 +23,21 @@ class ConsentimientoScreen extends StatefulWidget {
   State<ConsentimientoScreen> createState() => _ConsentimientoScreenState();
 
   // ── Persistencia ───────────────────────────────────────────────────────────
-  static const _store = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  // Día 66 — migrado de FlutterSecureStorage a SharedPreferences.
+  // encryptedSharedPreferences colgaba en la primera apertura en Samsung.
+  // La versión de consentimiento no es dato sensible, no necesita cifrado.
   static const _keyVersion = 'sica_terminos_version';
-  // Incrementar este número cuando los documentos cambien de forma relevante
-  // para volver a pedirle el consentimiento a todos los usuarios.
   static const _versionActual = '1';
 
   static Future<bool> necesitaConsentimiento() async {
-    final guardado = await _store.read(key: _keyVersion);
+    final prefs = await SharedPreferences.getInstance();
+    final guardado = prefs.getString(_keyVersion);
     return guardado != _versionActual;
   }
 
   static Future<void> marcarAceptado() async {
-    await _store.write(key: _keyVersion, value: _versionActual);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyVersion, _versionActual);
   }
 }
 
