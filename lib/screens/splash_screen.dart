@@ -37,12 +37,10 @@ class _SplashScreenState extends State<SplashScreen> {
     // para que Android pudiera mostrarlo sin interrumpir el flujo.
     // Se pide silenciosamente (sin diálogo propio): si Android muestra su
     // pop-up de permiso, bienvenido; si ya fue concedido, no hace nada.
-    await PermisosService.pedirCamara();
-    // Día 66 — pequeño delay después del permiso de cámara. En algunos
-    // dispositivos Android, el sistema tarda un frame extra en devolver
-    // el control a la app después de que el usuario concede el permiso,
-    // lo que puede causar que !mounted sea true y la navegación no ocurra.
-    await Future.delayed(const Duration(milliseconds: 300));
+    // Día 64 — se intentó pedir el permiso de cámara aquí al arrancar,
+    // pero causaba que la app se quedara pegada en el splash en algunos
+    // dispositivos Samsung después de que el usuario concedía el permiso.
+    // El permiso se pide directamente en scanner_screen cuando se necesita.
     if (!mounted) return;
 
     final token = await AuthStorage.getToken();
