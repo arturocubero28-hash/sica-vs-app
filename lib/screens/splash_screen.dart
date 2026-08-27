@@ -38,6 +38,11 @@ class _SplashScreenState extends State<SplashScreen> {
     // Se pide silenciosamente (sin diálogo propio): si Android muestra su
     // pop-up de permiso, bienvenido; si ya fue concedido, no hace nada.
     await PermisosService.pedirCamara();
+    // Día 66 — pequeño delay después del permiso de cámara. En algunos
+    // dispositivos Android, el sistema tarda un frame extra en devolver
+    // el control a la app después de que el usuario concede el permiso,
+    // lo que puede causar que !mounted sea true y la navegación no ocurra.
+    await Future.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
 
     final token = await AuthStorage.getToken();
