@@ -223,10 +223,12 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
       await _ctrl.stop();
     } on ApiException catch (e) {
       if (!mounted) return;
+      await _avisarRechazo();
       ErrorDialog.mostrar(context, e.message);
       _reanudarEscaner();
     } catch (_) {
       if (!mounted) return;
+      await _avisarRechazo();
       ErrorDialog.mostrar(context, 'No se pudo validar el código');
       _reanudarEscaner();
     } finally {
@@ -422,6 +424,28 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
       _placaCtrl.clear();
     });
     _reanudarEscaner();
+  }
+
+  /// Día 69 — señal de RECHAZO, distinta de la de aceptado.
+  ///
+  /// Antes solo había aviso al validar bien (vibración + clic): el guardia
+  /// sentía cuando estaba bien, pero cuando el código estaba vencido, usado
+  /// o era inválido no pasaba absolutamente nada sensorial — solo aparecía
+  /// un diálogo que había que estar mirando. En un portón con ruido y con
+  /// el guardia atendiendo el carro, eso se pierde.
+  ///
+  /// Se diferencia por PATRÓN, no por tono: tres vibraciones cortas
+  /// seguidas contra la única del acierto. SystemSoundType.alert es el
+  /// sonido de aviso del sistema, distinto del clic de confirmación.
+  /// Se usan los sonidos del sistema y no archivos de audio propios para
+  /// no sumar una dependencia nueva; si en campo resultan muy flojos, el
+  /// paso siguiente es incluir dos WAV cortos como assets.
+  Future<void> _avisarRechazo() async {
+    SystemSound.play(SystemSoundType.alert);
+    for (var i = 0; i < 3; i++) {
+      HapticFeedback.vibrate();
+      await Future.delayed(const Duration(milliseconds: 160));
+    }
   }
 
   /// Día 69 — reanuda el escáner SOLO si hay permiso de cámara.

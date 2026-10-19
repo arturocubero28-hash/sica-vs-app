@@ -235,6 +235,44 @@ class ApiClient {
     return _parse(res);
   }
 
+  /// Día 69 — faltaba PUT en el cliente: el código de emergencia se define
+  /// con PUT porque reemplaza un valor existente, no crea uno nuevo.
+  static Future<dynamic> put(String path, Map body) async {
+    final res = await http
+        .put(Uri.parse('${ApiConfig.baseUrl}$path'),
+            headers: await _headers(), body: jsonEncode(body))
+        .timeout(ApiConfig.timeout);
+    return _parse(res);
+  }
+
+  /// Día 69 — multipart genérico: un archivo OPCIONAL bajo el nombre de
+  /// campo que haga falta, más campos de texto.
+  ///
+  /// Los multipart que ya existían tenían el nombre del campo fijo en
+  /// 'comprobante' o eran específicos del escaneo de visitas, así que no
+  /// servían para los accesos del guardia ni para la foto del residente.
+  static Future<dynamic> postArchivo(
+    String path, {
+    File? archivo,
+    String campo = 'archivo',
+    Map<String, String> fields = const {},
+  }) async {
+    final token = await AuthStorage.getToken();
+    final req = http.MultipartRequest(
+        'POST', Uri.parse('${ApiConfig.baseUrl}$path'));
+    req.headers.addAll({
+      'Authorization': 'Bearer $token',
+      'ngrok-skip-browser-warning': 'true',
+    });
+    req.fields.addAll(fields);
+    if (archivo != null) {
+      req.files.add(await http.MultipartFile.fromPath(campo, archivo.path));
+    }
+    final streamed = await req.send().timeout(ApiConfig.timeout);
+    final res = await http.Response.fromStream(streamed);
+    return _parse(res);
+  }
+
   static Future<dynamic> postMultipart(
       String path, File file, Map<String, String> fields) async {
     final token = await AuthStorage.getToken();
@@ -515,4 +553,102 @@ class GuardiaApi {
     final res = await ApiClient.get('/visitas/accesos/recientes?pagina=$pagina');
     return res as List<dynamic>;
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DÍA 69 — Código de emergencia, accesos del guardia y foto del residente
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Código de emergencia del residente: 6 dígitos para entrar cuando se le
+/// descargó el teléfono y no puede mostrar su QR.
+///
+/// El código se guarda hasheado en el servidor, así que NUNCA se puede
+/// consultar — solo saber si ya hay uno configurado, y reemplazarlo.
+class CodigoEmergenciaApi {
+  static Future<Map<String, dynamic>> estado() async {
+    final res = await ApiClient.get('/auth/codigo-emergencia');
+    return res as Map<String, dynamic>;
+  }
+
+  static Future<void> definir(String codigo) async {
+    await ApiClient.put('/auth/codigo-emergencia', {'codigo': codigo});
+  }
+}
+
+/// Accesos que el guardia registra desde la caseta sin escanear un QR.
+class GuardiaAccesoApi {
+  /// Busca al residente por casa + código. Pide las dos cosas a propósito:
+  /// con solo el código, el guardia podría teclear números al azar y la app
+  /// le devolvería la foto y el nombre de cualquier residente.
+  static Future<Map<String, dynamic>> buscarResidente(
+      String casa, String codigo) async {
+    final res = await ApiClient.post('/guardias/residente/buscar', {
+      'casa': casa,
+      'codigo': codigo,
+    });
+    return res as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> registrarResidente({
+    required String residenteId,
+    required String direccion,
+    required int accesoId,
+    File? fotoIdentidad,
+  }) async {
+    final res = await ApiClient.postArchivo(
+      '/guardias/residente/registrar',
+      campo: 'foto_identidad',
+      archivo: fotoIdentidad,
+      fields: {
+        'residente_id': residenteId,
+        'direccion': direccion,
+        'acceso_id': '$accesoId',
+      },
+    );
+    return res as Map<String, dynamic>;
+  }
+
+  static Future<List<dynamic>> autorizadores() async {
+    final res = await ApiClient.get('/guardias/autorizadores');
+    return res as List<dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> registrarProveedor({
+    required String empresa,
+    required String conductor,
+    required String direccion,
+    required int accesoId,
+    String? placa,
+    String? autorizadoPor,
+    File? fotoIdentidad,
+  }) async {
+    final res = await ApiClient.postArchivo(
+      '/guardias/proveedor/registrar',
+      campo: 'foto_identidad',
+      archivo: fotoIdentidad,
+      fields: {
+        'empresa': empresa,
+        'conductor': conductor,
+        'direccion': direccion,
+        'acceso_id': '$accesoId',
+        if (placa != null && placa.isNotEmpty) 'placa': placa,
+        if (autorizadoPor != null && autorizadoPor.isNotEmpty)
+          'autorizado_por': autorizadoPor,
+      },
+    );
+    return res as Map<String, dynamic>;
+  }
+
+  /// Trancas del punto de acceso donde está parado el guardia.
+  static Future<Map<String, dynamic>> misTrancas() async {
+    final res = await ApiClient.get('/guardias/mis-trancas');
+    return res as Map<String, dynamic>;
+  }
+}
+
+/// La foto del residente nunca es pública: se sirve autenticada. El token
+/// va por query porque un `Image.network` no puede mandar encabezados.
+Future<String> urlFotoResidente(String nombreArchivo) async {
+  final token = await AuthStorage.getToken();
+  return '${ApiConfig.baseUrl}/unidades/residentes/foto/$nombreArchivo?_auth=$token';
 }

@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/error_dialog.dart';
 import '../../screens/login_screen.dart';
 import 'mi_edificio_screen.dart';
+import 'codigo_emergencia_screen.dart';
 import '../shared/cambiar_password_screen.dart';
 
 final _fmtL = NumberFormat.currency(locale: 'es_HN', symbol: 'L ');
@@ -95,14 +96,12 @@ class _MasScreenState extends State<MasScreen> {
             padding: const EdgeInsets.all(18),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Container(
-                  width: 48, height: 48,
-                  decoration: BoxDecoration(
-                    color: AppColors.azul.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(Icons.home, color: AppColors.azul, size: 26),
-                ),
+                // Día 69 — si administración ya le tomó la foto, el residente
+                // la ve acá. Es SOLO LECTURA a propósito: es la foto que el
+                // guardia usa para verificar su identidad en el portón, así
+                // que si el residente pudiera cambiarla podría poner la cara
+                // de otra persona y la verificación dejaría de servir.
+                _FotoOCasa(fotoUrl: residente?['foto_url']?.toString()),
                 const SizedBox(width: 14),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(unidad.isNotEmpty ? unidad : 'Mi cuenta',
@@ -179,6 +178,19 @@ class _MasScreenState extends State<MasScreen> {
         ),
 
         const SizedBox(height: 8),
+        // Día 69 — va ANTES de "Cambiar contraseña" a propósito: es la
+        // función nueva y la que el residente necesita configurar una vez,
+        // justamente antes de que le haga falta.
+        _OpcionTile(
+          icono: Icons.vpn_key_outlined,
+          color: AppColors.naranja,
+          titulo: 'Código de emergencia',
+          subtitulo: 'Para entrar si se te apaga el teléfono',
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const CodigoEmergenciaScreen())),
+        ),
+
+        const SizedBox(height: 8),
         _OpcionTile(
           icono: Icons.lock_reset,
           color: AppColors.azul2,
@@ -238,4 +250,48 @@ class _OpcionTile extends StatelessWidget {
       onTap: onTap,
     ),
   );
+}
+
+/// Día 69 — foto del residente en su perfil, con la casa como respaldo.
+///
+/// Solo lectura: no hay forma de cambiarla desde la app. La captura
+/// administración, porque es la que el guardia compara contra la
+/// identificación cuando alguien pide entrar sin teléfono.
+class _FotoOCasa extends StatelessWidget {
+  final String? fotoUrl;
+  const _FotoOCasa({required this.fotoUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    final placeholder = Container(
+      width: 48, height: 48,
+      decoration: BoxDecoration(
+        color: AppColors.azul.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Icon(Icons.home, color: AppColors.azul, size: 26),
+    );
+
+    if (fotoUrl == null || fotoUrl!.isEmpty) return placeholder;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: SizedBox(
+        width: 48, height: 48,
+        child: FutureBuilder<String>(
+          future: urlFotoResidente(fotoUrl!),
+          builder: (_, snap) {
+            if (!snap.hasData) return placeholder;
+            return Image.network(
+              snap.data!,
+              fit: BoxFit.cover,
+              // Si la foto no carga (sin señal, enlace vencido), se muestra
+              // la casa en vez de un ícono roto.
+              errorBuilder: (_, __, ___) => placeholder,
+            );
+          },
+        ),
+      ),
+    );
+  }
 }

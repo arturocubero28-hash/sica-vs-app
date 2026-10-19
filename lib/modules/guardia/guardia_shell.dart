@@ -4,6 +4,7 @@ import '../../api/notificaciones.dart';
 import '../../theme/app_theme.dart';
 import '../../screens/login_screen.dart';
 import 'scanner_screen.dart';
+import 'dar_acceso_screen.dart';
 import 'accesos_screen.dart';
 import 'seleccionar_punto_screen.dart';
 
@@ -91,7 +92,14 @@ class _GuardiaShellState extends State<GuardiaShell> {
   @override
   Widget build(BuildContext context) {
     final nombre = _usuario?['nombre'] ?? '';
-    final pantallas = [const ScannerScreen(), const AccesosScreen()];
+    // Día 69 — "Dar acceso" va en el medio: es el camino que el guardia usa
+    // cuando el escáner no sirve (residente sin batería, camión de servicio),
+    // así que queda al lado del escáner y antes del historial.
+    final pantallas = [
+      const ScannerScreen(),
+      const DarAccesoScreen(),
+      const AccesosScreen(),
+    ];
 
     if (_verificandoPunto) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -142,6 +150,11 @@ class _GuardiaShellState extends State<GuardiaShell> {
             icon: Icon(Icons.qr_code_scanner_outlined),
             selectedIcon: Icon(Icons.qr_code_scanner, color: AppColors.azul),
             label: 'Escáner',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.badge_outlined),
+            selectedIcon: Icon(Icons.badge, color: AppColors.azul),
+            label: 'Dar acceso',
           ),
           NavigationDestination(
             icon: Icon(Icons.history_outlined),
