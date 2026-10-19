@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
@@ -73,114 +72,157 @@ class _ConsentimientoScreenState extends State<ConsentimientoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Día 69 — accesibilidad. ANTES esta pantalla era un Column sin scroll con
+    // un Spacer() empujando el botón al fondo. Con el zoom de pantalla o el
+    // tamaño de fuente de Android en grande, el contenido pasaba de la altura
+    // disponible, el Spacer colapsaba a cero y el botón "Acepto y quiero
+    // continuar" quedaba renderizado FUERA del área visible -- sin scroll, era
+    // imposible llegar a él y el usuario no podía pasar del consentimiento.
+    //
+    // Patrón aplicado (estándar para pantallas de onboarding legal):
+    //   - el contenido va dentro de un SingleChildScrollView, así cualquier
+    //     escala de texto puede desplazarse;
+    //   - el botón vive FUERA del scroll, anclado en una barra inferior fija,
+    //     de modo que siempre está visible y alcanzable.
+    // No se toca textScaler ni se limita el zoom: pelear contra la
+    // accesibilidad del sistema es justo lo que no se debe hacer.
     return Scaffold(
       backgroundColor: AppColors.azul,
       body: SafeArea(
         child: Column(
           children: [
-            // ── Encabezado ──────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
-              child: Column(
-                children: [
-                  Container(
-                    width: 72, height: 72,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.shield_outlined, color: Colors.white, size: 36),
-                  ),
-                  const SizedBox(height: 18),
-                  const Text('Antes de continuar',
-                    style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Leé y aceptá nuestros documentos legales para usar la aplicación.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 14, height: 1.5),
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Tarjeta de checkboxes ────────────────────────────────────────
             Expanded(
-              child: Container(
-                width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                ),
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Documentos legales',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.azul)),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Tocá el nombre del documento para leerlo completo.',
-                      style: TextStyle(fontSize: 13, color: AppColors.gris.withOpacity(0.8)),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // ── Checkbox Términos ────────────────────────────────────
-                    _CheckboxDocumento(
-                      aceptado: _aceptaTerminos,
-                      onChanged: (v) => setState(() => _aceptaTerminos = v ?? false),
-                      titulo: 'Términos y Condiciones de Uso',
-                      descripcion: 'Reglas de uso de la app, gestión de cuotas y accesos.',
-                      onVerDocumento: () => _abrir('https://patronatovillasdelsol.com/terminos.html'),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // ── Checkbox Privacidad ──────────────────────────────────
-                    _CheckboxDocumento(
-                      aceptado: _aceptaPrivacidad,
-                      onChanged: (v) => setState(() => _aceptaPrivacidad = v ?? false),
-                      titulo: 'Política de Privacidad',
-                      descripcion: 'Cómo recopilamos, usamos y protegemos tus datos personales.',
-                      onVerDocumento: () => _abrir('https://patronatovillasdelsol.com/privacidad.html'),
-                    ),
-
-                    const Spacer(),
-
-                    // ── Botón continuar ──────────────────────────────────────
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: (_puedeContiuar && !_guardando) ? _continuar : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.naranja,
-                          disabledBackgroundColor: AppColors.naranja.withOpacity(0.3),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          elevation: 0,
-                        ),
-                        child: _guardando
-                          ? const SizedBox(width: 22, height: 22,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                          : const Text('Acepto y quiero continuar',
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  child: ConstrainedBox(
+                    // Mínimo = alto del viewport: con texto chico la tarjeta
+                    // blanca estira hasta la barra inferior (sin franja azul
+                    // suelta); con texto grande crece y aparece el scroll.
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    child: IntrinsicHeight(
+                      child: Column(
+                        children: [
+                          _encabezado(),
+                          Expanded(child: _tarjetaDocumentos()),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Center(
-                      child: Text(
-                        'Debés aceptar ambos documentos para usar la app.',
-                        style: TextStyle(fontSize: 12, color: AppColors.gris.withOpacity(0.7)),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
+            _barraInferior(),
           ],
         ),
+      ),
+    );
+  }
+
+  // ── Encabezado azul ────────────────────────────────────────────────────────
+  Widget _encabezado() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
+      child: Column(
+        children: [
+          Container(
+            width: 72, height: 72,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.shield_outlined, color: Colors.white, size: 36),
+          ),
+          const SizedBox(height: 18),
+          const Text('Antes de continuar',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text(
+            'Leé y aceptá nuestros documentos legales para usar la aplicación.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 14, height: 1.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Tarjeta blanca con los dos checkboxes ──────────────────────────────────
+  Widget _tarjetaDocumentos() {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Documentos legales',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.azul)),
+          const SizedBox(height: 6),
+          Text(
+            'Tocá el nombre del documento para leerlo completo.',
+            style: TextStyle(fontSize: 13, color: AppColors.gris.withOpacity(0.8)),
+          ),
+          const SizedBox(height: 24),
+          _CheckboxDocumento(
+            aceptado: _aceptaTerminos,
+            onChanged: (v) => setState(() => _aceptaTerminos = v ?? false),
+            titulo: 'Términos y Condiciones de Uso',
+            descripcion: 'Reglas de uso de la app, gestión de cuotas y accesos.',
+            onVerDocumento: () => _abrir('https://patronatovillasdelsol.com/terminos.html'),
+          ),
+          const SizedBox(height: 16),
+          _CheckboxDocumento(
+            aceptado: _aceptaPrivacidad,
+            onChanged: (v) => setState(() => _aceptaPrivacidad = v ?? false),
+            titulo: 'Política de Privacidad',
+            descripcion: 'Cómo recopilamos, usamos y protegemos tus datos personales.',
+            onVerDocumento: () => _abrir('https://patronatovillasdelsol.com/privacidad.html'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Barra inferior fija: el botón NUNCA sale de pantalla ───────────────────
+  Widget _barraInferior() {
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: (_puedeContiuar && !_guardando) ? _continuar : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.naranja,
+                disabledBackgroundColor: AppColors.naranja.withOpacity(0.3),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              child: _guardando
+                ? const SizedBox(width: 22, height: 22,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                : const Text('Acepto y quiero continuar',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Debés aceptar ambos documentos para usar la app.',
+            style: TextStyle(fontSize: 12, color: AppColors.gris.withOpacity(0.7)),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }

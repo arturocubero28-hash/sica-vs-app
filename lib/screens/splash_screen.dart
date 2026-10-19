@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api/client.dart';
 import '../api/bloqueo_biometrico.dart';
-import '../api/permisos.dart';
 import '../theme/app_theme.dart';
 import '../modules/shared/role_router.dart';
 import 'consentimiento_screen.dart';

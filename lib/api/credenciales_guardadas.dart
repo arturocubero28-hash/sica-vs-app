@@ -30,6 +30,12 @@ class CredencialesGuardadas {
   }
 
   /// Guardar credenciales y activar el login biométrico.
+  ///
+  /// Día 69 — hay UN SOLO casillero por dispositivo: guardar una cuenta nueva
+  /// sobrescribe a la anterior ("gana la última"). Quien decide si llamar a
+  /// este método es login_screen, que primero compara contra [getEmail] y le
+  /// pide confirmación al usuario cuando el guardado es un reemplazo —
+  /// nunca se pisa una cuenta en silencio.
   static Future<void> activar(String email, String password) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyEmail, email);

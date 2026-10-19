@@ -21,10 +21,16 @@ class ScannerScreen extends StatefulWidget {
 
 enum _Paso { scan, review, done }
 
-class _ScannerScreenState extends State<ScannerScreen> {
+class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserver {
   final MobileScannerController _ctrl = MobileScannerController();
   final _codigoCtrl = TextEditingController();
   final _placaCtrl  = TextEditingController(); // placa que el guardia digita
+
+  // Día 69 — estado del permiso de cámara.
+  // null = todavía no se consultó (se muestra un indicador, no la cámara).
+  bool? _camaraOk;
+  bool _camaraBloqueada = false; // negado permanente → solo se arregla en Ajustes
+  bool _pidiendoPermiso = false;
 
   _Paso _paso = _Paso.scan;
   bool _procesando = false;
@@ -54,9 +60,36 @@ class _ScannerScreenState extends State<ScannerScreen> {
   @override
   void initState() {
     super.initState();
+    // Día 69 — observador de ciclo de vida: si el guardia va a Ajustes y
+    // concede el permiso, al volver se re-verifica y el escáner arranca solo.
+    // ANTES no existía: el controlador ya había fallado al iniciar y la vista
+    // quedaba en negro hasta matar y reabrir la app.
+    WidgetsBinding.instance.addObserver(this);
     _pedirPermisosCamara();
     // Si Android mató el proceso mientras se tomaba una foto, restaurar todo
     _restaurarSiHuboReinicio();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _revisarPermisoAlVolver();
+    }
+  }
+
+  /// Al volver de Ajustes (o de cualquier pausa), re-verifica el permiso.
+  /// Si cambió de negado a concedido, arranca la cámara sin pedir nada más.
+  Future<void> _revisarPermisoAlVolver() async {
+    if (_camaraOk == true) return; // ya estaba andando, no tocar el escáner
+    final concedida = await PermisosService.camaraConcedida();
+    if (!concedida || !mounted) return;
+    setState(() {
+      _camaraOk = true;
+      _camaraBloqueada = false;
+    });
+    if (_paso == _Paso.scan) {
+      try { await _ctrl.start(); } catch (_) {}
+    }
   }
 
   /// Restaura el flujo del guardia si Android mató el proceso al abrir la cámara.
@@ -112,33 +145,33 @@ class _ScannerScreenState extends State<ScannerScreen> {
     });
   }
 
+  /// Día 69 — pide el permiso y deja el resultado en el estado, en vez de
+  /// abrir un diálogo encima de una cámara que ya falló.
+  ///
+  /// ANTES: se llamaba sin await desde initState mientras MobileScanner ya
+  /// estaba arrancando la cámara por su cuenta — dos caminos compitiendo. Y si
+  /// el permiso venía negado de antes, `request()` no muestra ningún diálogo
+  /// del sistema, así que el guardia veía la pantalla en negro sin saber por
+  /// qué. Ahora el escáner no se construye hasta saber el resultado, y el
+  /// mensaje explica qué pasó y qué hacer.
   Future<void> _pedirPermisosCamara() async {
-    final concedido = await PermisosService.pedirCamara();
-    if (!concedido && mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Permiso de cámara requerido'),
-          content: const Text(
-            'El escáner necesita acceso a la cámara para leer los códigos QR '
-            'de los visitantes. Por favor habilitalo en Ajustes.',
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-            ElevatedButton(
-              onPressed: () { Navigator.pop(context); PermisosService.abrirConfiguracion(); },
-              child: const Text('Abrir Ajustes'),
-            ),
-          ],
-        ),
-      );
+    if (_pidiendoPermiso) return;
+    _pidiendoPermiso = true;
+    final res = await PermisosService.pedirCamaraDetallado();
+    _pidiendoPermiso = false;
+    if (!mounted) return;
+    setState(() {
+      _camaraOk = res == ResultadoPermiso.concedido;
+      _camaraBloqueada = res == ResultadoPermiso.negadoPermanente;
+    });
+    if (_camaraOk == true && _paso == _Paso.scan) {
+      try { await _ctrl.start(); } catch (_) {}
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ctrl.dispose();
     _codigoCtrl.dispose();
     super.dispose();
@@ -191,11 +224,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       ErrorDialog.mostrar(context, e.message);
-      _ctrl.start();
+      _reanudarEscaner();
     } catch (_) {
       if (!mounted) return;
       ErrorDialog.mostrar(context, 'No se pudo validar el código');
-      _ctrl.start();
+      _reanudarEscaner();
     } finally {
       if (mounted) setState(() => _procesando = false);
     }
@@ -388,7 +421,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
       _codigoCtrl.clear();
       _placaCtrl.clear();
     });
-    _ctrl.start();
+    _reanudarEscaner();
+  }
+
+  /// Día 69 — reanuda el escáner SOLO si hay permiso de cámara.
+  /// Sin esta guarda, volver de un error con el permiso negado intentaba
+  /// arrancar una cámara que no puede arrancar y lanzaba una excepción
+  /// asíncrona que nadie atrapaba.
+  Future<void> _reanudarEscaner() async {
+    if (_camaraOk != true) return;
+    try { await _ctrl.start(); } catch (_) {}
   }
 
   // ─── UI ───────────────────────────────────────────────────────────────────
@@ -402,15 +444,24 @@ class _ScannerScreenState extends State<ScannerScreen> {
   }
 
   Widget _buildScan() {
+    // Día 69 — el escáner solo se construye con el permiso ya concedido.
+    // Si no lo hay, se muestra una explicación en su lugar, PERO el campo de
+    // código manual y el botón "Abrir" siguen disponibles abajo: un permiso
+    // de cámara negado no puede dejar al guardia sin poder trabajar.
+    final camaraLista = _camaraOk == true;
     return Stack(children: [
-      MobileScanner(controller: _ctrl, onDetect: _onDeteccion),
-      Center(child: Container(
-        width: 240, height: 240,
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.naranja, width: 3),
-          borderRadius: BorderRadius.circular(16),
-        ),
-      )),
+      if (camaraLista)
+        MobileScanner(controller: _ctrl, onDetect: _onDeteccion)
+      else
+        _panelSinCamara(),
+      if (camaraLista)
+        Center(child: Container(
+          width: 240, height: 240,
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.naranja, width: 3),
+            borderRadius: BorderRadius.circular(16),
+          ),
+        )),
       if (_procesando)
         Container(color: Colors.black54,
             child: Center(child: CircularProgressIndicator(color: AppColors.naranja))),
@@ -454,6 +505,77 @@ class _ScannerScreenState extends State<ScannerScreen> {
           label: const Text('Abrir', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
         )),
     ]);
+  }
+
+  /// Día 69 — reemplaza la vista de la cámara cuando no hay permiso.
+  /// Explica qué pasó y ofrece la acción correcta según el caso.
+  Widget _panelSinCamara() {
+    if (_camaraOk == null) {
+      return Container(
+        color: Colors.black87,
+        child: Center(child: CircularProgressIndicator(color: AppColors.naranja)),
+      );
+    }
+    return Container(
+      color: Colors.black87,
+      width: double.infinity,
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(28, 80, 28, 140),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.no_photography_outlined, color: Colors.white54, size: 56),
+              const SizedBox(height: 20),
+              Text(
+                _camaraBloqueada
+                    ? 'El permiso de cámara está bloqueado'
+                    : 'El escáner necesita la cámara',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _camaraBloqueada
+                    ? 'El permiso fue denegado anteriormente, así que Android ya no '
+                      'vuelve a preguntar. Habilitalo desde Ajustes y volvé: el escáner '
+                      'arranca solo.'
+                    : 'Permití el acceso a la cámara para poder leer los códigos QR '
+                      'de los visitantes.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _camaraBloqueada
+                      ? () => PermisosService.abrirConfiguracion()
+                      : _pedirPermisosCamara,
+                  icon: Icon(_camaraBloqueada ? Icons.settings : Icons.photo_camera_outlined),
+                  label: Text(_camaraBloqueada ? 'Abrir Ajustes' : 'Permitir cámara'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.naranja,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Mientras tanto podés seguir trabajando: escribí el código de '
+                'delivery abajo, o usá el botón Abrir para las trancas.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white38, fontSize: 12.5, height: 1.4),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildReview() {

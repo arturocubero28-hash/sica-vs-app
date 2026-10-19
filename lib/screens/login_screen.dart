@@ -26,6 +26,11 @@ class _LoginScreenState extends State<LoginScreen> {
   // Día 65 — login biométrico
   bool _biometricoDisponible = false;
   bool _biometricoActivo     = false;
+  // Día 69 — a QUÉ cuenta pertenece la huella guardada. Antes no se guardaba
+  // esta referencia en ningún lado: el casillero de credenciales era único y
+  // anónimo, así que la app no sabía de quién eran y el botón de huella
+  // entraba siempre con la primera cuenta que se hubiera guardado.
+  String? _emailBiometrico;
 
 
   @override
@@ -101,16 +106,15 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _verificarBiometrico() async {
     final disponible = await BloqueoBiometrico.disponible();
     final activo = await CredencialesGuardadas.estaActivo();
+    final email = activo ? await CredencialesGuardadas.getEmail() : null;
     if (!mounted) return;
     setState(() {
       _biometricoDisponible = disponible;
       _biometricoActivo = activo;
+      _emailBiometrico = email;
     });
-    if (activo) {
-      final email = await CredencialesGuardadas.getEmail();
-      if (email != null && _emailCtrl.text.isEmpty) {
-        _emailCtrl.text = email;
-      }
+    if (email != null && _emailCtrl.text.isEmpty) {
+      _emailCtrl.text = email;
     }
   }
 
@@ -121,7 +125,10 @@ class _LoginScreenState extends State<LoginScreen> {
     final creds = await CredencialesGuardadas.getCredenciales();
     if (creds == null) {
       if (mounted) ErrorDialog.mostrar(context, 'No se encontraron credenciales guardadas. Inicia sesion con tu contrasena.');
-      setState(() => _biometricoActivo = false);
+      setState(() {
+        _biometricoActivo = false;
+        _emailBiometrico = null;
+      });
       return;
     }
     _emailCtrl.text = creds.email;
@@ -129,8 +136,24 @@ class _LoginScreenState extends State<LoginScreen> {
     await _login();
   }
 
+  /// Día 69 — corrige que la huella quedara atada para siempre a la primera
+  /// cuenta que la activó.
+  ///
+  /// ANTES la guarda era `if (!_biometricoDisponible || _biometricoActivo)
+  /// return;` — o sea, apenas CUALQUIER cuenta activaba la huella, a ninguna
+  /// otra se le volvía a ofrecer. Las credenciales guardadas seguían siendo
+  /// las de la primera, así que el botón "Entrar con huella" entraba como esa
+  /// cuenta sin importar quién estuviera usando la app.
+  ///
+  /// Regla acordada: gana la ÚLTIMA cuenta que guarda su huella. Si ya hay
+  /// otra guardada, se ofrece reemplazarla y se avisa cuál se va a perder —
+  /// el reemplazo nunca es silencioso.
   Future<void> _sugerirBiometrico(String email, String password) async {
-    if (!_biometricoDisponible || _biometricoActivo) return;
+    if (!_biometricoDisponible) return;
+    final guardado = await CredencialesGuardadas.getEmail();
+    // Esta misma cuenta ya está guardada: nada que ofrecer.
+    if (guardado != null && guardado.toLowerCase() == email.toLowerCase()) return;
+    final esReemplazo = guardado != null && guardado.isNotEmpty;
     await Future.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
     final aceptado = await showDialog<bool>(
@@ -150,12 +173,16 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Icon(Icons.fingerprint, color: AppColors.naranja, size: 30),
             ),
             const SizedBox(height: 16),
-            Text('Activar acceso con huella?',
+            Text(esReemplazo ? 'Usar la huella para esta cuenta?' : 'Activar acceso con huella?',
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.azul),
               textAlign: TextAlign.center),
             const SizedBox(height: 10),
-            const Text('La proxima vez podes entrar sin escribir tu contrasena, solo con tu huella dactilar.',
-              style: TextStyle(fontSize: 13.5, color: AppColors.gris, height: 1.4),
+            Text(
+              esReemplazo
+                ? 'La huella de este telefono va a quedar ligada a $email. '
+                  'Se va a dejar de usar para $guardado.'
+                : 'La proxima vez podes entrar sin escribir tu contrasena, solo con tu huella dactilar.',
+              style: const TextStyle(fontSize: 13.5, color: AppColors.gris, height: 1.4),
               textAlign: TextAlign.center),
             const SizedBox(height: 22),
             SizedBox(width: double.infinity,
@@ -167,7 +194,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),
-                child: const Text('Activar', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                child: Text(esReemplazo ? 'Usar esta cuenta' : 'Activar',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
               ),
             ),
             const SizedBox(height: 10),
@@ -180,8 +208,15 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
     if (aceptado == true && mounted) {
+      // activar() escribe sobre el mismo casillero: guardar una cuenta nueva
+      // borra la anterior. Es la regla de "gana la ultima" que acordamos.
       await CredencialesGuardadas.activar(email, password);
-      if (mounted) setState(() => _biometricoActivo = true);
+      if (mounted) {
+        setState(() {
+          _biometricoActivo = true;
+          _emailBiometrico = email;
+        });
+      }
     }
   }
 
@@ -376,7 +411,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         OutlinedButton.icon(
                           onPressed: _cargando ? null : _loginBiometrico,
                           icon: const Icon(Icons.fingerprint),
-                          label: const Text('Entrar con huella'),
+                          // Dia 69 — el boton dice de QUIEN es la huella
+                          // guardada. Antes decia solo "Entrar con huella" y
+                          // entraba con una cuenta que podia no ser la que el
+                          // usuario tenia escrita en el formulario.
+                          label: Text(
+                            _emailBiometrico == null
+                                ? 'Entrar con huella'
+                                : 'Entrar con huella · $_emailBiometrico',
+                            textAlign: TextAlign.center,
+                          ),
                           style: OutlinedButton.styleFrom(
                             // Día 66 — era blanco sobre la tarjeta blanca del
                             // formulario: el botón se renderizaba pero era
