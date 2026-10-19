@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:async';
 import 'dart:io';
 import '../../api/client.dart';
 import '../../api/permisos.dart';
@@ -223,12 +224,12 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
       await _ctrl.stop();
     } on ApiException catch (e) {
       if (!mounted) return;
-      await _avisarRechazo();
+      _avisarRechazo();
       ErrorDialog.mostrar(context, e.message);
       _reanudarEscaner();
     } catch (_) {
       if (!mounted) return;
-      await _avisarRechazo();
+      _avisarRechazo();
       ErrorDialog.mostrar(context, 'No se pudo validar el código');
       _reanudarEscaner();
     } finally {
@@ -440,8 +441,23 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
   /// Se usan los sonidos del sistema y no archivos de audio propios para
   /// no sumar una dependencia nueva; si en campo resultan muy flojos, el
   /// paso siguiente es incluir dos WAV cortos como assets.
-  Future<void> _avisarRechazo() async {
+  /// El patrón de rechazo NO se espera a propósito.
+  ///
+  /// Si el que llama hiciera `await`, pasarían dos cosas malas: el guardia
+  /// vería el mensaje de error medio segundo tarde (480 ms de vibraciones
+  /// antes del diálogo), y el `context` quedaría cruzando un hueco
+  /// asíncrono -- en esos 480 ms la pantalla puede desmontarse y el
+  /// diálogo se mostraría contra un contexto muerto. Así el aviso corre
+  /// en paralelo con el diálogo, que es además como se siente natural.
+  void _avisarRechazo() {
     SystemSound.play(SystemSoundType.alert);
+    unawaited(_vibrarRechazo());
+  }
+
+  /// Tres vibraciones cortas. El acierto usa una sola, así que el guardia
+  /// distingue aceptado de rechazado por el PATRÓN y no por el tono --
+  /// importante en el portón, con ruido y el teléfono en silencio.
+  Future<void> _vibrarRechazo() async {
     for (var i = 0; i < 3; i++) {
       HapticFeedback.vibrate();
       await Future.delayed(const Duration(milliseconds: 160));
