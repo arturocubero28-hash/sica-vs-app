@@ -577,22 +577,33 @@ class CodigoEmergenciaApi {
 
 /// Accesos que el guardia registra desde la caseta sin escanear un QR.
 class GuardiaAccesoApi {
-  /// Busca al residente por casa + código. Pide las dos cosas a propósito:
-  /// con solo el código, el guardia podría teclear números al azar y la app
-  /// le devolvería la foto y el nombre de cualquier residente.
+  /// Busca a la persona que pide entrar sin teléfono.
+  ///
+  /// Con código (6 dígitos): residente con app, devuelve una persona
+  /// (`modo: 'codigo'`). Nunca se busca solo por código: con eso el guardia
+  /// podría teclear números al azar y recorrer la residencial.
+  ///
+  /// Sin código (Día 70): persona del padrón, que no tiene app ni puede
+  /// tener código. Devuelve la lista de gente del padrón de esa casa
+  /// (`modo: 'padron'`) para que el guardia compare contra la
+  /// identificación. En un edificio hay que mandar el apartamento.
   static Future<Map<String, dynamic>> buscarResidente(
-      String casa, String codigo) async {
+      String casa, String codigo, {String apartamento = ''}) async {
     final res = await ApiClient.post('/guardias/residente/buscar', {
       'casa': casa,
       'codigo': codigo,
+      if (apartamento.isNotEmpty) 'apartamento': apartamento,
     });
     return res as Map<String, dynamic>;
   }
 
+  /// Día 70 — la tranca se indica por tipo ('vehicular' | 'peatonal') y
+  /// dirección, que es lo que el guardia elige con los tres botones. El
+  /// servidor busca la tranca de su punto que corresponde.
   static Future<Map<String, dynamic>> registrarResidente({
     required String residenteId,
     required String direccion,
-    required int accesoId,
+    required String tipoAcceso,
     File? fotoIdentidad,
   }) async {
     final res = await ApiClient.postArchivo(
@@ -602,7 +613,7 @@ class GuardiaAccesoApi {
       fields: {
         'residente_id': residenteId,
         'direccion': direccion,
-        'acceso_id': '$accesoId',
+        'tipo_acceso': tipoAcceso,
       },
     );
     return res as Map<String, dynamic>;

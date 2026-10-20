@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../api/client.dart';
 import '../../api/camara_helper.dart';
+import '../../api/sonidos_escaner.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/error_dialog.dart';
 
@@ -220,43 +221,90 @@ class _FormResidente extends StatefulWidget {
   State<_FormResidente> createState() => _FormResidenteState();
 }
 
+/// Día 70 — los tres botones del portón. Cada uno es una tranca concreta del
+/// punto del guardia: el servidor busca la que tenga ese tipo y esa
+/// dirección. Antes había un desplegable de trancas más un selector de
+/// entrada/salida: dos decisiones para algo que en el portón es una sola.
+class _Accion {
+  final String tipo;       // vehicular | peatonal
+  final String direccion;  // entrada | salida
+  final String etiqueta;
+  final IconData icono;
+  const _Accion(this.tipo, this.direccion, this.etiqueta, this.icono);
+}
+
+const _acciones = [
+  _Accion('vehicular', 'entrada', 'Entrada vehicular', Icons.directions_car),
+  _Accion('vehicular', 'salida', 'Salida vehicular', Icons.directions_car_outlined),
+  _Accion('peatonal', 'entrada', 'Entrada peatonal', Icons.directions_walk),
+];
+
 class _FormResidenteState extends State<_FormResidente> {
   final _casaCtrl = TextEditingController();
+  final _aptoCtrl = TextEditingController();
   final _codigoCtrl = TextEditingController();
+
+  /// Personas del padrón de la casa buscada (modo sin código). Mientras no
+  /// se elija a nadie, la pantalla muestra esta lista.
+  List<Map<String, dynamic>>? _padron;
 
   Map<String, dynamic>? _encontrado;
   String? _casaEncontrada;
   bool _enMora = false;
   bool _buscando = false;
-  bool _registrando = false;
-
-  int? _tranca;
-  String _direccion = 'entrada';
+  String? _registrandoAccion; // etiqueta de la acción en curso
   File? _fotoId;
 
   @override
   void dispose() {
     _casaCtrl.dispose();
+    _aptoCtrl.dispose();
     _codigoCtrl.dispose();
     super.dispose();
+  }
+
+  void _reiniciar() {
+    setState(() {
+      _padron = null; _encontrado = null; _casaEncontrada = null;
+      _enMora = false; _fotoId = null; _registrandoAccion = null;
+    });
+    _casaCtrl.clear();
+    _aptoCtrl.clear();
+    _codigoCtrl.clear();
   }
 
   Future<void> _buscar() async {
     final casa = _casaCtrl.text.trim();
     final codigo = _codigoCtrl.text.trim();
-    if (casa.isEmpty || codigo.length != 6) {
-      ErrorDialog.mostrar(context, 'Escribí la casa y el código de 6 dígitos');
+    if (casa.isEmpty) {
+      ErrorDialog.mostrar(context, 'Escribí la casa');
+      return;
+    }
+    // Código vacío = persona del padrón. Si escribió algo, tienen que ser
+    // los 6 dígitos completos: un código a medias no es "sin código".
+    if (codigo.isNotEmpty && codigo.length != 6) {
+      ErrorDialog.mostrar(context,
+          'El código tiene 6 dígitos. Si la persona es del padrón, dejalo vacío.');
       return;
     }
     setState(() => _buscando = true);
     try {
-      final r = await GuardiaAccesoApi.buscarResidente(casa, codigo);
+      final r = await GuardiaAccesoApi.buscarResidente(
+        casa, codigo, apartamento: _aptoCtrl.text.trim());
       if (!mounted) return;
       HapticFeedback.vibrate();
       setState(() {
-        _encontrado = r['residente'] as Map<String, dynamic>;
-        _casaEncontrada = r['casa']?.toString();
-        _enMora = r['cuenta_en_mora'] == true;
+        _casaEncontrada = [r['casa'], r['apartamento']]
+            .where((x) => x != null && x.toString().isNotEmpty)
+            .join(' · Apto ');
+        if (r['modo'] == 'padron') {
+          _padron = (r['personas'] as List).cast<Map<String, dynamic>>();
+          _encontrado = null;
+          _enMora = false;
+        } else {
+          _encontrado = r['residente'] as Map<String, dynamic>;
+          _enMora = r['cuenta_en_mora'] == true;
+        }
         _buscando = false;
       });
     } on ApiException catch (e) {
@@ -275,148 +323,293 @@ class _FormResidenteState extends State<_FormResidente> {
     if (f != null && mounted) setState(() => _fotoId = f);
   }
 
-  Future<void> _registrar() async {
-    if (_tranca == null) {
-      ErrorDialog.mostrar(context, 'Elegí qué tranca abrir');
-      return;
-    }
+  bool _hayTranca(_Accion a) => widget.trancas.any((t) =>
+      (t['tipo'] ?? '').toString() == a.tipo &&
+      (t['direccion'] ?? '').toString() == a.direccion);
+
+  Future<void> _registrar(_Accion a) async {
     // La foto es obligatoria en las entradas: es la evidencia de que el
-    // guardia efectivamente verificó la identificación. Sin ella, esto
-    // sería una apertura manual con más pasos.
-    if (_direccion == 'entrada' && _fotoId == null) {
-      ErrorDialog.mostrar(context, 'Tomá la foto de la identificación antes de abrir');
+    // guardia efectivamente verificó la identificación. En el padrón es
+    // además la ÚNICA evidencia, porque no hay código que respalde nada.
+    if (a.direccion == 'entrada' && _fotoId == null) {
+      ErrorDialog.mostrar(context, 'Tomá primero la foto de la identificación');
       return;
     }
-    setState(() => _registrando = true);
+    setState(() => _registrandoAccion = a.etiqueta);
     try {
       final r = await GuardiaAccesoApi.registrarResidente(
         residenteId: _encontrado!['id'].toString(),
-        direccion: _direccion,
-        accesoId: _tranca!,
+        direccion: a.direccion,
+        tipoAcceso: a.tipo,
         fotoIdentidad: _fotoId,
       );
       if (!mounted) return;
-      HapticFeedback.vibrate();
-      SystemSound.play(SystemSoundType.click);
+      SonidosEscaner.aceptado();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(r['mensaje']?.toString() ?? 'Acceso registrado')),
       );
-      setState(() {
-        _encontrado = null; _casaEncontrada = null; _enMora = false;
-        _fotoId = null; _tranca = null; _direccion = 'entrada';
-        _registrando = false;
-      });
-      _casaCtrl.clear();
-      _codigoCtrl.clear();
+      _reiniciar();
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() => _registrando = false);
+      setState(() => _registrandoAccion = null);
+      SonidosEscaner.rechazado();
       ErrorDialog.mostrar(context, e.message);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _registrando = false);
+      setState(() => _registrandoAccion = null);
       ErrorDialog.mostrar(context, 'No se pudo registrar el acceso');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final Widget cuerpo;
+    if (_encontrado != null) {
+      cuerpo = _pasoVerificar();
+    } else if (_padron != null) {
+      cuerpo = _pasoElegirDelPadron();
+    } else {
+      cuerpo = _pasoBuscar();
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (_encontrado == null) ...[
-          Text('El residente te dice su casa y su código',
-              style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.azul)),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _casaCtrl,
-            textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              labelText: 'Casa', hintText: 'Casa 24',
-              prefixIcon: Icon(Icons.home_outlined),
-            ),
+      child: cuerpo,
+    );
+  }
+
+  // ── Paso 1: buscar ──────────────────────────────────────────────────────
+  Widget _pasoBuscar() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('La persona te dice su casa y su código',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.azul)),
+      const SizedBox(height: 4),
+      const Text('Si es del padrón (no usa la app), dejá el código vacío.',
+          style: TextStyle(fontSize: 12.5, color: AppColors.gris)),
+      const SizedBox(height: 12),
+      TextField(
+        controller: _casaCtrl,
+        textCapitalization: TextCapitalization.words,
+        decoration: const InputDecoration(
+          labelText: 'Casa o edificio', hintText: 'Casa 24',
+          prefixIcon: Icon(Icons.home_outlined),
+        ),
+      ),
+      const SizedBox(height: 12),
+      TextField(
+        controller: _aptoCtrl,
+        textCapitalization: TextCapitalization.characters,
+        decoration: const InputDecoration(
+          labelText: 'Apartamento (solo si es edificio)', hintText: '2B',
+          prefixIcon: Icon(Icons.apartment_outlined),
+        ),
+      ),
+      const SizedBox(height: 12),
+      TextField(
+        controller: _codigoCtrl,
+        keyboardType: TextInputType.number,
+        maxLength: 6,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: const InputDecoration(
+          labelText: 'Código de 6 dígitos (vacío si es del padrón)', counterText: '',
+          prefixIcon: Icon(Icons.pin_outlined),
+        ),
+        onSubmitted: (_) => _buscar(),
+      ),
+      const SizedBox(height: 16),
+      SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: _buscando ? null : _buscar,
+          icon: _buscando
+              ? const SizedBox(width: 18, height: 18,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.4))
+              : const Icon(Icons.search),
+          label: const Text('Buscar'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.azul, foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _codigoCtrl,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(
-              labelText: 'Código de 6 dígitos', counterText: '',
-              prefixIcon: Icon(Icons.pin_outlined),
-            ),
-            onSubmitted: (_) => _buscar(),
+        ),
+      ),
+    ]);
+  }
+
+  // ── Paso 1b: elegir del padrón ──────────────────────────────────────────
+  Widget _pasoElegirDelPadron() {
+    final personas = _padron!;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('Padrón · ${_casaEncontrada ?? ''}',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.azul)),
+      const SizedBox(height: 4),
+      const Text(
+        'Pedile la identificación y tocá a la persona que coincide '
+        'con el nombre, el número y la foto.',
+        style: TextStyle(fontSize: 12.5, color: AppColors.gris, height: 1.35)),
+      const SizedBox(height: 12),
+      ...personas.map((p) => _TarjetaPadron(
+            persona: p,
+            onElegir: () => setState(() => _encontrado = p),
+          )),
+      const SizedBox(height: 8),
+      TextButton.icon(
+        onPressed: _reiniciar,
+        icon: const Icon(Icons.arrow_back),
+        label: const Text('Buscar otra casa'),
+      ),
+    ]);
+  }
+
+  // ── Paso 2: verificar, foto y abrir ─────────────────────────────────────
+  Widget _pasoVerificar() {
+    final esPadron = _encontrado!['es_censo'] == true || _padron != null;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (esPadron)
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF4E5),
+            borderRadius: BorderRadius.circular(10),
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _buscando ? null : _buscar,
-              icon: _buscando
-                  ? const SizedBox(width: 18, height: 18,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.4))
-                  : const Icon(Icons.search),
-              label: const Text('Buscar residente'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.azul, foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+          // Sin código no hay nada que respalde que esta persona es quien
+          // dice ser, salvo la comparación del guardia. Se le recuerda.
+          child: const Text(
+            'Persona del padrón: no hay código que la respalde. '
+            'Compará la identificación con cuidado.',
+            style: TextStyle(fontSize: 12.5, color: Color(0xFF8A5300), height: 1.35)),
+        ),
+      _FichaResidente(
+        residente: _encontrado!,
+        casa: _casaEncontrada ?? '',
+        enMora: _enMora,
+        // Si vino de la lista del padrón, "No es esta persona" vuelve a la
+        // lista; si vino por código, vuelve a buscar.
+        onCancelar: () => setState(() { _encontrado = null; _fotoId = null; }),
+      ),
+      const SizedBox(height: 16),
+
+      Text('1. Foto de la identificación',
+          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.azul)),
+      const SizedBox(height: 8),
+      _BotonFoto(
+        foto: _fotoId,
+        etiqueta: 'Foto de la identificación',
+        onTomar: _tomarFoto,
+      ),
+      const SizedBox(height: 18),
+
+      Text('2. ¿Por dónde pasa?',
+          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.azul)),
+      const SizedBox(height: 8),
+      for (final a in _acciones) ...[
+        _BotonAccion(
+          accion: a,
+          disponible: _hayTranca(a),
+          cargando: _registrandoAccion == a.etiqueta,
+          bloqueado: _registrandoAccion != null,
+          onTap: () => _registrar(a),
+        ),
+        const SizedBox(height: 10),
+      ],
+    ]);
+  }
+}
+
+/// Una persona del padrón en la lista: foto, nombre e identidad, que es lo
+/// que el guardia compara contra la identificación.
+class _TarjetaPadron extends StatelessWidget {
+  final Map<String, dynamic> persona;
+  final VoidCallback onElegir;
+  const _TarjetaPadron({required this.persona, required this.onElegir});
+
+  @override
+  Widget build(BuildContext context) {
+    final foto = persona['foto_url']?.toString();
+    final dni = (persona['dni'] ?? '').toString();
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onElegir,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                width: 60, height: 60,
+                child: (foto == null || foto.isEmpty)
+                    ? Container(
+                        color: const Color(0xFFF1F3F6),
+                        child: Icon(Icons.person_outline, size: 30, color: AppColors.gris))
+                    : FutureBuilder<String>(
+                        future: urlFotoResidente(foto),
+                        builder: (_, snap) => snap.hasData
+                            ? Image.network(snap.data!, fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                    color: const Color(0xFFF1F3F6),
+                                    child: Icon(Icons.person_outline,
+                                        size: 30, color: AppColors.gris)))
+                            : Container(color: const Color(0xFFF1F3F6)),
+                      ),
               ),
             ),
-          ),
-        ] else ...[
-          _FichaResidente(
-            residente: _encontrado!,
-            casa: _casaEncontrada ?? '',
-            enMora: _enMora,
-            onCancelar: () => setState(() {
-              _encontrado = null; _fotoId = null; _tranca = null;
-            }),
-          ),
-          const SizedBox(height: 18),
-
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'entrada', label: Text('Entrada'), icon: Icon(Icons.login)),
-              ButtonSegment(value: 'salida', label: Text('Salida'), icon: Icon(Icons.logout)),
-            ],
-            selected: {_direccion},
-            onSelectionChanged: (s) => setState(() => _direccion = s.first),
-          ),
-          const SizedBox(height: 16),
-
-          _SelectorTranca(
-            trancas: widget.trancas,
-            seleccionada: _tranca,
-            onChanged: (v) => setState(() => _tranca = v),
-          ),
-          const SizedBox(height: 14),
-
-          _BotonFoto(
-            foto: _fotoId,
-            etiqueta: 'Foto de la identificación',
-            onTomar: _tomarFoto,
-          ),
-          const SizedBox(height: 18),
-
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _registrando ? null : _registrar,
-              icon: _registrando
-                  ? const SizedBox(width: 18, height: 18,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.4))
-                  : const Icon(Icons.lock_open),
-              label: Text(_direccion == 'entrada' ? 'Dar acceso' : 'Registrar salida'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.naranja, foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 15),
-              ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(persona['nombre']?.toString() ?? '—',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
+                        color: AppColors.azul)),
+                const SizedBox(height: 3),
+                Text(dni.isEmpty ? 'Sin identidad registrada' : 'Identidad $dni',
+                    style: TextStyle(fontSize: 13,
+                        color: dni.isEmpty ? const Color(0xFFB45309) : AppColors.gris)),
+              ]),
             ),
-          ),
-        ],
-      ]),
+            Icon(Icons.chevron_right, color: AppColors.gris),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// Botón grande de una de las tres acciones. Si el punto del guardia no
+/// tiene esa tranca, se muestra apagado y lo dice, en vez de esconderlo:
+/// un botón que desaparece hace pensar que la app está rota.
+class _BotonAccion extends StatelessWidget {
+  final _Accion accion;
+  final bool disponible;
+  final bool cargando;
+  final bool bloqueado;
+  final VoidCallback onTap;
+  const _BotonAccion({
+    required this.accion, required this.disponible,
+    required this.cargando, required this.bloqueado, required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final esEntrada = accion.direccion == 'entrada';
+    final color = esEntrada ? AppColors.naranja : AppColors.azul;
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: (!disponible || bloqueado) ? null : onTap,
+        icon: cargando
+            ? const SizedBox(width: 18, height: 18,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.4))
+            : Icon(accion.icono),
+        label: Text(disponible
+            ? accion.etiqueta
+            : '${accion.etiqueta} — no hay en este punto'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color, foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        ),
+      ),
     );
   }
 }
@@ -605,8 +798,9 @@ class _FormProveedorState extends State<_FormProveedor> {
         fotoIdentidad: _fotoId,
       );
       if (!mounted) return;
-      HapticFeedback.vibrate();
-      SystemSound.play(SystemSoundType.click);
+      // Mismo beep que el escáner: el guardia aprende un solo sonido para
+      // "pasó", venga de donde venga.
+      SonidosEscaner.aceptado();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(r['mensaje']?.toString() ?? 'Acceso registrado')),
       );
