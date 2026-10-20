@@ -86,6 +86,27 @@ class _ConsentimientoScreenState extends State<ConsentimientoScreen> {
     //     de modo que siempre está visible y alcanzable.
     // No se toca textScaler ni se limita el zoom: pelear contra la
     // accesibilidad del sistema es justo lo que no se debe hacer.
+    // Día 70 — SIN IntrinsicHeight y SIN Expanded acá adentro.
+    //
+    // La primera versión de este arreglo envolvía el contenido en
+    // IntrinsicHeight y metía la tarjeta en un Expanded, para que con
+    // texto chico la tarjeta blanca estirara hasta la barra inferior.
+    // Funcionaba en la cabeza y no en el teléfono.
+    //
+    // IntrinsicHeight mide a su hijo preguntándole cuánto mide "por
+    // naturaleza", y para eso recorre todo el subárbol. Ponerle adentro un
+    // Expanded (un hijo flexible, que por definición NO tiene altura
+    // propia sino la que sobre) mezcla dos formas opuestas de calcular
+    // tamaño. Encima la tarjeta usa width: double.infinity. El resultado
+    // es una medición que puede salir infinita y un layout que no termina
+    // de resolverse: la app no crashea, se queda pensando con la pantalla
+    // en blanco. Que es exactamente lo que se vio.
+    //
+    // El mismo efecto visual se consigue sin medir nada: el fondo blanco
+    // se pinta DETRÁS de toda la columna, así el espacio que sobra debajo
+    // de la tarjeta ya es blanco y no hace falta estirarla. La esquina
+    // redondeada sigue recortándose contra el azul del encabezado, que es
+    // donde se ve.
     return Scaffold(
       backgroundColor: AppColors.azul,
       body: SafeArea(
@@ -95,15 +116,15 @@ class _ConsentimientoScreenState extends State<ConsentimientoScreen> {
               child: LayoutBuilder(
                 builder: (context, constraints) => SingleChildScrollView(
                   child: ConstrainedBox(
-                    // Mínimo = alto del viewport: con texto chico la tarjeta
-                    // blanca estira hasta la barra inferior (sin franja azul
-                    // suelta); con texto grande crece y aparece el scroll.
+                    // Mínimo = alto del viewport: con texto chico se llena
+                    // la pantalla; con texto grande crece y hay scroll.
                     constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    child: IntrinsicHeight(
+                    child: Container(
+                      color: Colors.white,
                       child: Column(
                         children: [
-                          _encabezado(),
-                          Expanded(child: _tarjetaDocumentos()),
+                          Container(color: AppColors.azul, child: _encabezado()),
+                          _tarjetaDocumentos(),
                         ],
                       ),
                     ),
