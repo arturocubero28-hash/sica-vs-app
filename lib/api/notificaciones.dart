@@ -26,10 +26,18 @@ class NotificacionesService {
 
   /// Inicializa el sistema de notificaciones. Se llama una vez al arrancar.
   static Future<void> inicializar() async {
-    // Permisos (Android 13+ los pide explícitamente)
-    await _fcm.requestPermission(alert: true, badge: true, sound: true);
-
-    // Configurar notificaciones locales (para mostrar cuando la app está abierta)
+    // Día 70 — el ORDEN de acá importa y no es el que parece.
+    //
+    // Antes esto arrancaba pidiendo el permiso de notificaciones. En
+    // Android 13+ eso abre un diálogo del sistema y espera a que la
+    // persona conteste, así que si lo ignoraba o lo dejaba abierto, todo
+    // lo de abajo quedaba sin ejecutar: sin canal de notificaciones y sin
+    // el listener de primer plano.
+    //
+    // Ahora primero se deja TODO lo local configurado, que no depende de
+    // nadie, y el permiso se pide al final. Si la persona lo rechaza o no
+    // contesta, lo único que se pierde son las notificaciones push: la
+    // app queda entera.
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidInit);
     await _local.initialize(initSettings);
@@ -41,6 +49,16 @@ class NotificacionesService {
 
     // Cuando llega una notificación con la app en PRIMER PLANO
     FirebaseMessaging.onMessage.listen(_mostrarLocal);
+
+    // Último, y sin dejar que una respuesta que nunca llega quede
+    // esperando para siempre.
+    try {
+      await _fcm
+          .requestPermission(alert: true, badge: true, sound: true)
+          .timeout(const Duration(seconds: 25));
+    } catch (_) {
+      // Sin permiso de notificaciones. La app funciona igual.
+    }
   }
 
   /// Registra el token de este dispositivo en el backend (tras login).
