@@ -20,7 +20,7 @@ import 'package:flutter/services.dart';
 ///
 /// CÓMO SE DISTINGUEN
 /// ------------------
-/// El acierto es un tono corto y único (1800 Hz, 145 ms, onda cuadrada) -- el beep
+/// El acierto es un tono corto y único (1600 Hz, 145 ms, onda cuadrada con una segunda voz desafinada que le da aspereza) -- el beep
 /// clásico de caja de supermercado. El rechazo son dos tonos graves y
 /// descendentes (440 → 330 Hz, 355 ms en total).
 ///
