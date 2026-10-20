@@ -9,11 +9,28 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///   (evita que Samsung borre los datos al limpiar EncryptedSharedPreferences)
 /// - Flag activo: SharedPreferences (persiste entre sesiones)
 class CredencialesGuardadas {
-  // Sin encryptedSharedPreferences — usa KeyStore directamente, más estable
-  // en Samsung que EncryptedSharedPreferences que puede borrarse en ciertos
-  // eventos del sistema.
+  // Día 70 — ESTA CONFIGURACIÓN CAUSABA PÉRDIDA DE CREDENCIALES.
+  //
+  // Antes acá decía `encryptedSharedPreferences: false` mientras que
+  // AuthStorage (en client.dart) usa `true`. Dos instancias de
+  // FlutterSecureStorage con opciones DISTINTAS, y -- esto es lo que no
+  // era obvio -- escribiendo sobre el MISMO archivo de respaldo, porque
+  // el plugin usa un nombre por defecto si no se le da otro.
+  //
+  // El resultado: según cuál instancia tocara el almacén último, lo
+  // escrito por la otra quedaba ilegible. Se veía así: el correo seguía
+  // apareciendo (vive en SharedPreferences, que nadie pisa) pero la
+  // contraseña volvía nula. O sea, el botón "Entrar con huella" seguía
+  // ofreciéndose para una cuenta cuya contraseña ya no existía.
+  //
+  // Arreglo: misma opción que AuthStorage, y ADEMÁS un archivo propio
+  // (sharedPreferencesName) para que las dos no puedan pisarse nunca más,
+  // aunque alguien cambie una de las dos configuraciones en el futuro.
   static const _secure = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: false),
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+      sharedPreferencesName: 'sica_credenciales_biometricas',
+    ),
   );
 
   static const _keyPass   = 'sica_cred_pass';

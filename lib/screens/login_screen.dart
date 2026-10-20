@@ -118,13 +118,27 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Día 70 — marca si el login en curso lo disparó la huella. Sin esto no
+  /// hay forma de saber, en el manejo del error, si la contraseña que falló
+  /// la escribió la persona o salió del casillero guardado -- y solo en el
+  /// segundo caso corresponde borrar la credencial.
+  bool _veniaDeHuella = false;
+
   Future<void> _loginBiometrico() async {
     final ok = await BloqueoBiometrico.autenticar(
         motivo: 'Usa tu huella para iniciar sesion');
     if (!ok || !mounted) return;
     final creds = await CredencialesGuardadas.getCredenciales();
     if (creds == null) {
-      if (mounted) ErrorDialog.mostrar(context, 'No se encontraron credenciales guardadas. Inicia sesion con tu contrasena.');
+      // Día 70 — si la contraseña guardada no está, lo guardado YA NO SIRVE
+      // para nada. Antes solo se apagaba la opción en pantalla y el correo
+      // seguía guardado, así que al volver al login el botón "Entrar con
+      // huella" reaparecía y fallaba otra vez. Se borra de verdad.
+      await CredencialesGuardadas.limpiar();
+      if (!mounted) return;
+      ErrorDialog.mostrar(context,
+          'El acceso con huella se desconfiguró en este teléfono. '
+          'Entrá con tu contraseña y volvé a activarlo.');
       setState(() {
         _biometricoActivo = false;
         _emailBiometrico = null;
@@ -133,7 +147,12 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     _emailCtrl.text = creds.email;
     _passCtrl.text  = creds.password;
-    await _login();
+    _veniaDeHuella = true;
+    try {
+      await _login();
+    } finally {
+      _veniaDeHuella = false;
+    }
   }
 
   /// Día 69 — corrige que la huella quedara atada para siempre a la primera
@@ -261,10 +280,34 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       RoleRouter.navegar(context, rol);
     } on ApiException catch (e) {
+      // Día 70 — si el intento venía de la huella y el servidor rechazó la
+      // contraseña, la credencial guardada quedó vieja (la cambiaron desde
+      // la web, por ejemplo). Se borra ACÁ MISMO.
+      //
+      // Antes no se borraba, y el costo no era solo una molestia: el
+      // servidor permite 5 intentos cada 15 minutos POR IP. Cada toque al
+      // botón de la huella gastaba uno de esos cinco sin que la persona lo
+      // supiera, y en cuatro toques quedaba sin poder entrar ni con la
+      // contraseña correcta. Un residente podía dejarse afuera de su propia
+      // cuenta sin escribir una sola letra mal.
+      if (_veniaDeHuella) {
+        await CredencialesGuardadas.limpiar();
+        if (mounted) {
+          setState(() {
+            _biometricoActivo = false;
+            _emailBiometrico = null;
+          });
+        }
+      }
+      if (!mounted) return;
       _intentosFallidos++;
       if (_intentosFallidos >= _maxIntentos) {
         _bloqueadoHasta = DateTime.now().add(const Duration(minutes: _minutosBloqueo));
         ErrorDialog.mostrar(context, 'Demasiados intentos fallidos. Bloqueado por $_minutosBloqueo minutos.');
+      } else if (_veniaDeHuella) {
+        ErrorDialog.mostrar(context,
+            'La contraseña guardada para la huella ya no es válida. '
+            'Entrá con tu contraseña y volvé a activar la huella.');
       } else {
         final restantes = _maxIntentos - _intentosFallidos;
         ErrorDialog.mostrar(context, '${e.message} ($restantes intentos restantes)');
