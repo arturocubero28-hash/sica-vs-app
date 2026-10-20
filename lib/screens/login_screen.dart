@@ -290,7 +290,24 @@ class _LoginScreenState extends State<LoginScreen> {
       // supiera, y en cuatro toques quedaba sin poder entrar ni con la
       // contraseña correcta. Un residente podía dejarse afuera de su propia
       // cuenta sin escribir una sola letra mal.
-      if (_veniaDeHuella) {
+      // Día 70 — SOLO se borra la credencial guardada cuando el servidor
+      // dice que la contraseña está mal. Nada más.
+      //
+      // La primera versión de este arreglo borraba ante CUALQUIER error, y
+      // eso convertía el bloqueo por intentos en una pérdida de datos: al
+      // repetir la prueba se superaban los 5 intentos por IP, el servidor
+      // respondía 'demasiados_intentos', y la app interpretaba eso como
+      // "la contraseña guardada no sirve" y la borraba. El usuario perdía
+      // su acceso con huella por un límite que no tiene nada que ver con
+      // si su contraseña es correcta.
+      //
+      // Un 429 (muchos intentos), un 500 o un corte de red no dicen
+      // absolutamente nada sobre la credencial. Solo
+      // 'credenciales_invalidas' lo dice.
+      final credencialRechazada = e.code == 'credenciales_invalidas';
+      final bloqueoDelServidor  = e.code == 'demasiados_intentos';
+
+      if (_veniaDeHuella && credencialRechazada) {
         await CredencialesGuardadas.limpiar();
         if (mounted) {
           setState(() {
@@ -300,14 +317,26 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
       if (!mounted) return;
+
+      if (bloqueoDelServidor) {
+        // No se suma al contador local: el que está bloqueando es el
+        // servidor, y contarlo acá además encadenaría los dos bloqueos.
+        ErrorDialog.mostrar(context, e.message);
+        return;
+      }
+
       _intentosFallidos++;
       if (_intentosFallidos >= _maxIntentos) {
         _bloqueadoHasta = DateTime.now().add(const Duration(minutes: _minutosBloqueo));
         ErrorDialog.mostrar(context, 'Demasiados intentos fallidos. Bloqueado por $_minutosBloqueo minutos.');
-      } else if (_veniaDeHuella) {
+      } else if (_veniaDeHuella && credencialRechazada) {
         ErrorDialog.mostrar(context,
             'La contraseña guardada para la huella ya no es válida. '
             'Entrá con tu contraseña y volvé a activar la huella.');
+      } else if (_veniaDeHuella) {
+        // Falló por otra cosa (red, servidor). La huella sigue guardada.
+        ErrorDialog.mostrar(context,
+            'No se pudo entrar con la huella: ${e.message}');
       } else {
         final restantes = _maxIntentos - _intentosFallidos;
         ErrorDialog.mostrar(context, '${e.message} ($restantes intentos restantes)');
