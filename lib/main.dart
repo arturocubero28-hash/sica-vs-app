@@ -5,6 +5,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
+import 'dart:io';
+import 'api/firebase_ios.dart';
 import 'api/notificaciones.dart';
 
 /// Día 58 (A-2) — clave global de navegación. Permite navegar a una pantalla
@@ -63,7 +65,18 @@ void main() async {
 /// importa en el portón.
 Future<void> _inicializarServiciosEnSegundoPlano() async {
   try {
-    await Firebase.initializeApp().timeout(const Duration(seconds: 15));
+    // Día 71 — en iPhone los datos de Firebase vienen de firebase_ios.dart.
+    // Si todavía no se llenaron, se sigue sin notificaciones push.
+    if (Platform.isIOS) {
+      if (kFirebaseIos == null) {
+        debugPrint('Firebase iOS sin configurar: sin notificaciones push');
+        return;
+      }
+      await Firebase.initializeApp(options: kFirebaseIos)
+          .timeout(const Duration(seconds: 15));
+    } else {
+      await Firebase.initializeApp().timeout(const Duration(seconds: 15));
+    }
   } catch (e) {
     debugPrint('Firebase no inicializado: $e');
     return; // sin Firebase no tiene sentido seguir con las notificaciones

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/services.dart';
 
 /// Bloqueo de captura de pantalla usando FLAG_SECURE de Android,
@@ -12,6 +13,8 @@ class ScreenSecure {
 
   /// Activa FLAG_SECURE. Llamar en initState de la pantalla sensible.
   static Future<void> activar() async {
+    // Solo Android: iPhone no permite bloquear capturas de pantalla.
+    if (!Platform.isAndroid) return;
     try {
       await _channel.invokeMethod('secureOn');
     } catch (_) {
@@ -21,6 +24,7 @@ class ScreenSecure {
 
   /// Desactiva FLAG_SECURE. Llamar en dispose.
   static Future<void> desactivar() async {
+    if (!Platform.isAndroid) return;
     try {
       await _channel.invokeMethod('secureOff');
     } catch (_) {}

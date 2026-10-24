@@ -54,6 +54,9 @@ class RecuperacionComprobante {
 
   /// Recupera la foto perdida por Android. Se llama al arrancar la app.
   static Future<File?> recuperarFotoPerdida() async {
+    // Solo Android mata la app al abrir la cámara; en iPhone esta
+    // función no existe y solo daría un error.
+    if (!Platform.isAndroid) return null;
     try {
       final picker = ImagePicker();
       final perdida = await picker.retrieveLostData();

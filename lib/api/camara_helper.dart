@@ -60,6 +60,9 @@ class CamaraHelper {
   }
 
   static Future<File?> _recuperar() async {
+    // Solo Android mata la app al abrir la cámara; en iPhone esta
+    // función no existe y solo daría un error.
+    if (!Platform.isAndroid) return null;
     try {
       final perdida = await _picker.retrieveLostData();
       if (perdida.isEmpty) return null;

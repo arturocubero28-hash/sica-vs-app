@@ -85,7 +85,9 @@ flutter:
 # el logo de Villas del Sol se distinga bien sobre cualquier launcher.
 flutter_launcher_icons:
   android: true
-  ios: false
+  ios: true
+  remove_alpha_ios: true
+  background_color_ios: "#FFFFFF"
   image_path: "assets/images/logo.png"
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/images/logo.png"

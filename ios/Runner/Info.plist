@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Sica Vs App</string>
+	<string>Villas del Sol</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>sica_vs_app</string>
+	<string>Villas del Sol</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -24,6 +24,26 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- Día 71 — textos que iPhone muestra al pedir cada permiso. Sin
+	     ellos la app se cierra al pedirlo y Apple la rechaza. -->
+	<key>NSCameraUsageDescription</key>
+	<string>La cámara se usa para escanear los códigos QR de las visitas y para tomar fotos de identificación y comprobantes de pago.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Se usa para adjuntar desde tus fotos el comprobante de pago de la cuota.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Se usa para guardar en tus fotos la tarjeta QR de una visita.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID se usa para entrar a la app sin escribir tu contraseña.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Bluetooth se usa para la tarjeta virtual de acceso en los portones.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<!-- Solo usa el cifrado estándar del sistema (HTTPS): no requiere
+	     documentación de exportación ante Apple. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
@@ -56,8 +76,6 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>

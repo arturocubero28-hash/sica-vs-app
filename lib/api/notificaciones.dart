@@ -2,6 +2,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
 import 'client.dart';
+import 'dart:io';
 import '../theme/app_theme.dart';
 
 /// Maneja las notificaciones push (Firebase Cloud Messaging) de SICA-VS.
@@ -39,7 +40,15 @@ class NotificacionesService {
     // contesta, lo único que se pierde son las notificaciones push: la
     // app queda entera.
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: androidInit);
+    // Día 71 — iPhone exige sus propios ajustes; sin ellos initialize()
+    // lanza un error y no se registraba nada de lo de abajo. Los permisos
+    // no se piden acá: los pide Firebase al final, una sola vez.
+    const iosInit = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+    const initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
     await _local.initialize(initSettings);
 
     await _local
@@ -47,8 +56,15 @@ class NotificacionesService {
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(_canal);
 
-    // Cuando llega una notificación con la app en PRIMER PLANO
-    FirebaseMessaging.onMessage.listen(_mostrarLocal);
+    // Cuando llega una notificación con la app en PRIMER PLANO.
+    // En iPhone la muestra el propio sistema (opciones de abajo); en
+    // Android hay que dibujarla a mano con una notificación local.
+    if (Platform.isIOS) {
+      await _fcm.setForegroundNotificationPresentationOptions(
+          alert: true, badge: true, sound: true);
+    } else {
+      FirebaseMessaging.onMessage.listen(_mostrarLocal);
+    }
 
     // Último, y sin dejar que una respuesta que nunca llega quede
     // esperando para siempre.

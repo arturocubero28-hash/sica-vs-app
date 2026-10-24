@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Notificaciones push. Al exportar para App Store, la firma de
+	     distribución lo cambia sola a "production". -->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -55,6 +56,9 @@ class RecuperacionGuardia {
   /// Recupera la foto que Android perdió al matar el proceso.
   /// Se llama al arrancar la app. Devuelve la ruta del archivo o null.
   static Future<String?> recuperarFotoPerdida() async {
+    // Solo Android mata la app al abrir la cámara; en iPhone esta
+    // función no existe y solo daría un error.
+    if (!Platform.isAndroid) return null;
     try {
       final picker = ImagePicker();
       final perdida = await picker.retrieveLostData();

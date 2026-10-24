@@ -1,0 +1,57 @@
+# Compilación de la app para iPhone en las Mac de Codemagic (Día 71).
+#
+# No hace falta tener Mac: Codemagic toma este repositorio de GitHub,
+# compila en sus máquinas y sube la app a App Store Connect / TestFlight.
+#
+# PREPARACIÓN (una sola vez, ya con la cuenta de Apple Developer activa):
+#   1. App Store Connect → Usuarios y acceso → Integraciones → claves de API
+#      de App Store Connect → generar una clave con rol "App Manager".
+#      Descargar el archivo .p8 (solo se puede descargar UNA vez).
+#   2. Codemagic → Team settings → Integrations → Developer Portal →
+#      conectar con esa clave. Ponerle de nombre: villas_del_sol
+#   3. App Store Connect → Apps → "+" → nueva app con el bundle ID
+#      com.villasdelsol.sicaVsApp. Copiar su "Apple ID" (un número) y
+#      ponerlo abajo en APP_STORE_APPLE_ID.
+#   4. Codemagic → agregar la app desde GitHub (repo sica-vs-app) →
+#      "codemagic.yaml" → correr el flujo ios-testflight.
+workflows:
+  ios-testflight:
+    name: iPhone → TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: villas_del_sol
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.villasdelsol.sicaVsApp
+      vars:
+        APP_STORE_APPLE_ID: 0000000000   # ← reemplazar con el Apple ID de la app
+    # Sin sección "triggering": solo se compila cuando se manda a correr a
+    # mano. Con 500 minutos gratis al mes no conviene compilar en cada push.
+    scripts:
+      - name: Dependencias
+        script: flutter pub get
+      - name: Íconos de iPhone
+        script: dart run flutter_launcher_icons
+      - name: Pods
+        script: cd ios && pod install --repo-update
+      - name: Firma
+        script: xcode-project use-profiles
+      - name: Compilar
+        script: |
+          ULTIMO=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
+          flutter build ipa --release \
+            --dart-define=ENV=prod \
+            --build-number=$((ULTIMO + 1)) \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

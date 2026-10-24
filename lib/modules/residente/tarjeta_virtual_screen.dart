@@ -5,6 +5,7 @@ import '../../api/ble_service.dart';
 import '../../api/screen_secure.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/error_dialog.dart';
+import 'dart:io';
 import '../../widgets/tarjeta_qr.dart';
 
 /// Pantalla "Mi tarjeta de acceso" con dos métodos:
@@ -182,7 +183,9 @@ class _TarjetaVirtualScreenState extends State<TarjetaVirtualScreen> {
         ]),
       ),
       const SizedBox(height: 12),
-      _botonWallet(),
+      // Google Wallet solo existe en Android. En iPhone el equivalente es
+      // Apple Wallet, que es otro sistema y otro trabajo (Día 71).
+      if (Platform.isAndroid) _botonWallet(),
       const SizedBox(height: 8),
       _botonSuspender(_suspenderQr),
     ]);
