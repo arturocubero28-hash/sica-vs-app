@@ -47,7 +47,11 @@ if (hayKeystore) {
 
 android {
     namespace = "com.villasdelsol.sica_vs_app"
-    compileSdk = flutter.compileSdkVersion
+    // Día 71 — fijado a mano para publicar en Google Play: desde el 31 de
+    // agosto de 2026 toda app nueva y toda actualización tiene que apuntar
+    // a Android 16 (API 36). Con el valor de Flutter dependía de la versión
+    // de Flutter instalada en la PC que compilara.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -59,7 +63,7 @@ android {
     defaultConfig {
         applicationId = "com.villasdelsol.sica_vs_app"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
