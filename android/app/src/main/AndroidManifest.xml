@@ -19,6 +19,8 @@
 
     <application
         android:label="Villas del Sol"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/LaunchTheme"

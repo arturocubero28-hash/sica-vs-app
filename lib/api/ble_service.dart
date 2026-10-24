@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'almacen_seguro.dart';
 import 'client.dart';
 
 /// Servicio de acceso BLE.
@@ -15,7 +16,7 @@ import 'client.dart';
 ///   - El rolling counter se incrementa en cada uso
 class BleService {
   static const _secure = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    aOptions: AndroidOptions(encryptedSharedPreferences: true, resetOnError: true),
   );
   static const _kToken = 'ble_token';
   static const _kClave = 'ble_clave';
@@ -91,16 +92,16 @@ class BleService {
 
   /// ¿Hay una credencial guardada localmente en este dispositivo?
   static Future<bool> tieneCredencialLocal() async {
-    final t = await _secure.read(key: _kToken);
+    final t = await leerSeguro(_secure, _kToken);
     return t != null && t.isNotEmpty;
   }
 
   /// Genera la respuesta al desafío del lector (HMAC-SHA256 de challenge+contador).
   /// El lector valida esta firma con la misma clave que recibió en el sync.
   static Future<String?> firmarDesafio(String challenge) async {
-    final clave = await _secure.read(key: _kClave);
+    final clave = await leerSeguro(_secure, _kClave);
     if (clave == null) return null;
-    final contador = int.tryParse(await _secure.read(key: _kContador) ?? '0') ?? 0;
+    final contador = int.tryParse(await leerSeguro(_secure, _kContador) ?? '0') ?? 0;
     // El mensaje a firmar combina el desafío del lector con el contador actual
     final mensaje = '$challenge:$contador';
     // HMAC-SHA256 usando la clave secreta

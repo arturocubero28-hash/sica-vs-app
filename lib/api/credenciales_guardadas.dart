@@ -1,4 +1,5 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'almacen_seguro.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Día 66 — credenciales guardadas para login biométrico.
@@ -30,6 +31,7 @@ class CredencialesGuardadas {
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
       sharedPreferencesName: 'sica_credenciales_biometricas',
+      resetOnError: true,
     ),
   );
 
@@ -74,7 +76,7 @@ class CredencialesGuardadas {
   static Future<({String email, String password})?> getCredenciales() async {
     final prefs = await SharedPreferences.getInstance();
     final email = prefs.getString(_keyEmail) ?? '';
-    final pass  = await _secure.read(key: _keyPass);
+    final pass  = await leerSeguro(_secure, _keyPass);
     if (email.isEmpty || pass == null) return null;
     return (email: email, password: pass);
   }

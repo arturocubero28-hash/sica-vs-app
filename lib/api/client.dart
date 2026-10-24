@@ -10,6 +10,7 @@ import 'models.dart';
 import '../main.dart' show navigatorKey;
 import '../theme/app_theme.dart';
 import '../screens/login_screen.dart';
+import 'almacen_seguro.dart';
 import 'credenciales_guardadas.dart' as credenciales_guardadas;
 
 // ── Nombre/logo de la residencial (Día 46) ─────────────────────────────────────
@@ -101,7 +102,7 @@ class ResidencialCache {
 /// SharedPreferences porque no contienen credenciales.
 class AuthStorage {
   static const _secure = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    aOptions: AndroidOptions(encryptedSharedPreferences: true, resetOnError: true),
   );
   static const _tokenKey = 'sica_token';
   static const _rolKey   = 'sica_rol';
@@ -132,7 +133,7 @@ class AuthStorage {
   }
 
   static Future<String?> getToken() async {
-    return await _secure.read(key: _tokenKey);
+    return leerSeguro(_secure, _tokenKey);
   }
 
   static Future<String?> getRol() async {
