@@ -210,7 +210,7 @@ class _MasScreenState extends State<MasScreen> {
         ),
 
         const SizedBox(height: 32),
-        const Center(child: Text('SICA-VS v1.0.0',
+        const Center(child: Text('Residencial Villas del Sol App · v1.0.0',
             style: TextStyle(color: AppColors.gris, fontSize: 12))),
       ],
     );

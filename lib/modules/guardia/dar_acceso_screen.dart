@@ -284,7 +284,7 @@ class _FormResidenteState extends State<_FormResidente> {
     // los 6 dígitos completos: un código a medias no es "sin código".
     if (codigo.isNotEmpty && codigo.length != 6) {
       ErrorDialog.mostrar(context,
-          'El código tiene 6 dígitos. Si la persona es del padrón, dejalo vacío.');
+          'El código tiene 6 dígitos. Si la persona no tiene código, dejalo vacío.');
       return;
     }
     setState(() => _buscando = true);
@@ -383,7 +383,7 @@ class _FormResidenteState extends State<_FormResidente> {
       Text('La persona te dice su casa y su código',
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.azul)),
       const SizedBox(height: 4),
-      const Text('Si es del padrón (no usa la app), dejá el código vacío.',
+      const Text('Si no tiene código (es del padrón o no lo configuró), dejá el código vacío y vas a ver a las personas de la casa.',
           style: TextStyle(fontSize: 12.5, color: AppColors.gris)),
       const SizedBox(height: 12),
       TextField(
@@ -410,7 +410,7 @@ class _FormResidenteState extends State<_FormResidente> {
         maxLength: 6,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         decoration: const InputDecoration(
-          labelText: 'Código de 6 dígitos (vacío si es del padrón)', counterText: '',
+          labelText: 'Código de 6 dígitos (vacío si no tiene)', counterText: '',
           prefixIcon: Icon(Icons.pin_outlined),
         ),
         onSubmitted: (_) => _buscar(),
@@ -438,12 +438,13 @@ class _FormResidenteState extends State<_FormResidente> {
   Widget _pasoElegirDelPadron() {
     final personas = _padron!;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Padrón · ${_casaEncontrada ?? ''}',
+      Text('Casa ${_casaEncontrada ?? ''} · '
+          '${personas.length} ${personas.length == 1 ? 'persona' : 'personas'}',
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.azul)),
       const SizedBox(height: 4),
       const Text(
         'Pedile la identificación y tocá a la persona que coincide '
-        'con el nombre, el número y la foto.',
+        'con el nombre, el número de identidad y la foto.',
         style: TextStyle(fontSize: 12.5, color: AppColors.gris, height: 1.35)),
       const SizedBox(height: 12),
       ...personas.map((p) => _TarjetaPadron(
@@ -462,6 +463,7 @@ class _FormResidenteState extends State<_FormResidente> {
   // ── Paso 2: verificar, foto y abrir ─────────────────────────────────────
   Widget _pasoVerificar() {
     final esPadron = _encontrado!['es_censo'] == true || _padron != null;
+    final sinCodigo = _encontrado!['origen'] == 'sin_codigo';
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (esPadron)
         Container(
@@ -474,9 +476,12 @@ class _FormResidenteState extends State<_FormResidente> {
           ),
           // Sin código no hay nada que respalde que esta persona es quien
           // dice ser, salvo la comparación del guardia. Se le recuerda.
-          child: const Text(
-            'Persona del padrón: no hay código que la respalde. '
-            'Compará la identificación con cuidado.',
+          child: Text(
+            sinCodigo
+                ? 'Esta persona usa la app pero no tiene código de emergencia: '
+                  'compará la identificación con cuidado.'
+                : 'Persona del padrón: no hay código que la respalde. '
+                  'Compará la identificación con cuidado.',
             style: TextStyle(fontSize: 12.5, color: Color(0xFF8A5300), height: 1.35)),
         ),
       _FichaResidente(
@@ -516,7 +521,8 @@ class _FormResidenteState extends State<_FormResidente> {
   }
 }
 
-/// Una persona del padrón en la lista: foto, nombre e identidad, que es lo
+/// Una persona de la casa en la lista (padrón o sin código): foto, nombre,
+/// identidad y qué es de la casa, que es lo
 /// que el guardia compara contra la identificación.
 class _TarjetaPadron extends StatelessWidget {
   final Map<String, dynamic> persona;
@@ -527,6 +533,13 @@ class _TarjetaPadron extends StatelessWidget {
   Widget build(BuildContext context) {
     final foto = persona['foto_url']?.toString();
     final dni = (persona['dni'] ?? '').toString();
+    final esTitular = persona['rol_cuenta'] == 'titular';
+    final relacion = (persona['relacion'] ?? '').toString();
+    final rol = esTitular
+        ? 'Titular'
+        : (relacion.isEmpty ? 'Miembro' : 'Miembro · ${relacion[0].toUpperCase()}${relacion.substring(1)}');
+    final apto = (persona['apartamento'] ?? '').toString();
+    final sinCodigo = persona['origen'] == 'sin_codigo';
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: InkWell(
@@ -565,12 +578,39 @@ class _TarjetaPadron extends StatelessWidget {
                 Text(dni.isEmpty ? 'Sin identidad registrada' : 'Identidad $dni',
                     style: TextStyle(fontSize: 13,
                         color: dni.isEmpty ? const Color(0xFFB45309) : AppColors.gris)),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 4, children: [
+                  _Etiqueta(rol, esTitular ? AppColors.azul : AppColors.gris),
+                  if (apto.isNotEmpty) _Etiqueta('Apto $apto', AppColors.gris),
+                  _Etiqueta(sinCodigo ? 'Usa la app, sin código' : 'Padrón',
+                      const Color(0xFFB45309)),
+                ]),
               ]),
             ),
             Icon(Icons.chevron_right, color: AppColors.gris),
           ]),
         ),
       ),
+    );
+  }
+}
+
+/// Etiqueta chica de la tarjeta del padrón (rol, apartamento, origen).
+class _Etiqueta extends StatelessWidget {
+  final String texto;
+  final Color color;
+  const _Etiqueta(this.texto, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(texto,
+          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: color)),
     );
   }
 }

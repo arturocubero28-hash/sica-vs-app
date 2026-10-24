@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../api/client.dart';
 import '../api/bloqueo_biometrico.dart';
+import '../widgets/marca_residencial.dart';
 import '../theme/app_theme.dart';
 import '../modules/shared/role_router.dart';
 import 'consentimiento_screen.dart';
@@ -95,7 +96,7 @@ class _SplashScreenState extends State<SplashScreen> {
     final bloqueoActivo = await BloqueoBiometrico.estaActivo();
     if (bloqueoActivo) {
       final ok = await BloqueoBiometrico.autenticar(
-        motivo: 'Desbloqueá SICA-VS con tu huella',
+        motivo: 'Desbloqueá la app con tu huella',
       );
       if (!ok) {
         if (mounted) setState(() => _bloqueado = true);
@@ -119,7 +120,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _reintentar() async {
     final ok = await BloqueoBiometrico.autenticar(
-      motivo: 'Desbloqueá SICA-VS con tu huella',
+      motivo: 'Desbloqueá la app con tu huella',
     );
     if (ok && mounted) {
       final rol = await AuthStorage.getRol();
@@ -138,36 +139,12 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.azulDeFabrica,
-      body: Center(
+      body: FondoMarca(
+        child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Logo de Villas del Sol
-            Container(
-              width: 108, height: 108,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(28),
-              ),
-              padding: const EdgeInsets.all(14),
-              child: Image.asset(
-                'assets/images/logo.png',
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.shield, color: AppColors.naranjaDeFabrica, size: 60),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text('SICA-VS',
-                style: TextStyle(
-                  fontSize: 36, fontWeight: FontWeight.w900,
-                  color: Colors.white, letterSpacing: 2,
-                )),
-            const SizedBox(height: 8),
-            Text('Residencial Villas del Sol',
-                style: TextStyle(
-                  fontSize: 14, color: Colors.white.withOpacity(0.7),
-                )),
+            const MarcaResidencial(tamLogo: 108),
             const SizedBox(height: 48),
             if (_bloqueado) ...[
               const Icon(Icons.lock_outline, color: Colors.white70, size: 32),
@@ -197,6 +174,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     color: AppColors.naranjaDeFabrica, strokeWidth: 2.5),
               ),
           ],
+        ),
         ),
       ),
     );

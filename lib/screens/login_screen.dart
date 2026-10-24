@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../api/client.dart';
 import '../api/bloqueo_biometrico.dart';
 import '../api/credenciales_guardadas.dart';
+import '../widgets/marca_residencial.dart';
 import '../theme/app_theme.dart';
 import '../modules/shared/role_router.dart';
 import '../api/notificaciones.dart';
@@ -369,58 +370,38 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.azulDeFabrica,
-      body: SafeArea(
+      body: FondoMarca(
+        child: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  width: 96, height: 96,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  padding: const EdgeInsets.all(12),
-                  child: Image.asset(
-                    'assets/images/logo.png',
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) =>
-                        const Icon(Icons.shield, color: AppColors.naranjaDeFabrica, size: 48),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text('SICA-VS',
-                    style: TextStyle(
-                      fontSize: 32, fontWeight: FontWeight.w900,
-                      color: Colors.white, letterSpacing: 2,
-                    )),
-                const SizedBox(height: 4),
-                Text('Residencial Villas del Sol',
-                    style: TextStyle(
-                      fontSize: 13, color: Colors.white.withOpacity(0.7),
-                    )),
-                const SizedBox(height: 40),
+                const MarcaResidencial(tamLogo: 92),
+                const SizedBox(height: 36),
 
                 Container(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(28),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.15),
-                          blurRadius: 20, offset: const Offset(0, 8)),
+                      BoxShadow(color: Colors.black.withOpacity(0.18),
+                          blurRadius: 30, offset: const Offset(0, 12)),
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text('Iniciar sesión',
+                      const Text('Bienvenido',
                           style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.w700,
+                            fontSize: 24, fontWeight: FontWeight.w800,
                             color: AppColors.azulDeFabrica,
                           )),
+                      const SizedBox(height: 4),
+                      const Text('Iniciá sesión para continuar',
+                          style: TextStyle(fontSize: 13.5, color: AppColors.gris)),
                       const SizedBox(height: 20),
 
                       TextField(
@@ -470,6 +451,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       ElevatedButton(
                         onPressed: (_cargando || _estaBloqueado) ? null : _login,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.naranjaDeFabrica,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(52),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          elevation: 0,
+                          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
                         child: _cargando
                             ? const SizedBox(height: 20, width: 20,
                                 child: CircularProgressIndicator(
@@ -500,6 +489,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             foregroundColor: AppColors.azulDeFabrica,
                             side: const BorderSide(color: AppColors.naranjaDeFabrica, width: 1.5),
                             padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
                         ),
                       ],
@@ -507,12 +497,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Text('v1.0.0',
-                    style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
+                Text('$kNombreApp · v1.0.0',
+                    style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 12)),
 
               ],
             ),
           ),
+        ),
         ),
       ),
     );

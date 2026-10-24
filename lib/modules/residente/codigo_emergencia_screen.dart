@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../api/client.dart';
+import '../../api/screen_secure.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/error_dialog.dart';
 
-/// Día 69 — Código de emergencia del residente.
+/// Código de emergencia del residente (Día 69, rediseñado el Día 71).
 ///
-/// Resuelve el problema que el patronato planteó como "se me descargó el
-/// celular y no puedo mostrar mi QR". La alternativa era poner lectores
-/// biométricos en el portón: lectores nuevos, un lector de enrolamiento, y
-/// que alguien tuviera que custodiar las huellas de 500 familias. Esto no
-/// cuesta nada y queda auditado igual.
+/// Sirve para entrar cuando el teléfono se quedó sin batería: el residente le
+/// dice al guardia su casa y este código. Desde el Día 71, a pedido del
+/// patronato, el residente puede VER su código acá por si lo olvida. Sale
+/// oculto, como una contraseña, y el ojo lo muestra. La pantalla bloquea las
+/// capturas mientras está abierta.
 ///
-/// El código se guarda HASHEADO en el servidor, así que esta pantalla nunca
-/// puede mostrarlo. Solo sabe si ya hay uno configurado. Si el residente lo
-/// olvida, define uno nuevo.
+/// Siempre hay un botón "Cambiar código": pide el nuevo y se confirma con
+/// "Cambiar".
 class CodigoEmergenciaScreen extends StatefulWidget {
   const CodigoEmergenciaScreen({super.key});
 
@@ -23,66 +23,74 @@ class CodigoEmergenciaScreen extends StatefulWidget {
 }
 
 class _CodigoEmergenciaScreenState extends State<CodigoEmergenciaScreen> {
-  final _codigoCtrl = TextEditingController();
-  final _repetirCtrl = TextEditingController();
+  final _nuevoCtrl = TextEditingController();
 
   bool _cargando = true;
   bool _guardando = false;
   bool _configurado = false;
-  bool _ver = false;
+  String? _codigo;          // null si no hay o si es anterior al Día 71
+  bool _mostrar = false;    // el ojo del código actual
+  bool _editando = false;   // formulario de cambio abierto
+  bool _verNuevo = false;   // el ojo del campo nuevo
 
   @override
   void initState() {
     super.initState();
+    ScreenSecure.activar();
     _cargarEstado();
   }
 
   @override
   void dispose() {
-    _codigoCtrl.dispose();
-    _repetirCtrl.dispose();
+    ScreenSecure.desactivar();
+    _nuevoCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _cargarEstado() async {
+    setState(() => _cargando = true);
     try {
       final r = await CodigoEmergenciaApi.estado();
       if (!mounted) return;
       setState(() {
         _configurado = r['configurado'] == true;
+        _codigo = r['codigo']?.toString();
         _cargando = false;
+        _mostrar = false;
       });
     } catch (_) {
       if (mounted) setState(() => _cargando = false);
     }
   }
 
-  Future<void> _guardar() async {
-    final codigo = _codigoCtrl.text.trim();
-    final repetir = _repetirCtrl.text.trim();
+  void _abrirCambio() {
+    _nuevoCtrl.clear();
+    setState(() {
+      _editando = true;
+      _verNuevo = false;
+    });
+  }
 
+  Future<void> _cambiar() async {
+    final codigo = _nuevoCtrl.text.trim();
     if (codigo.length != 6) {
       ErrorDialog.mostrar(context, 'El código debe tener 6 dígitos');
       return;
     }
-    if (codigo != repetir) {
-      ErrorDialog.mostrar(context, 'Los dos códigos no coinciden');
-      return;
-    }
-
+    final eraNuevo = !_configurado;
     setState(() => _guardando = true);
     try {
       await CodigoEmergenciaApi.definir(codigo);
       if (!mounted) return;
       setState(() {
-        _configurado = true;
         _guardando = false;
+        _editando = false;
       });
-      _codigoCtrl.clear();
-      _repetirCtrl.clear();
+      _nuevoCtrl.clear();
+      await _cargarEstado();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Código de emergencia guardado')),
+        SnackBar(content: Text(eraNuevo ? 'Código creado' : 'Código cambiado')),
       );
     } on ApiException catch (e) {
       if (mounted) {
@@ -101,163 +109,161 @@ class _CodigoEmergenciaScreenState extends State<CodigoEmergenciaScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Código de emergencia')),
-      // Scroll siempre: con el teclado abierto y el zoom de Android en
-      // grande, un formulario sin scroll deja el botón fuera de alcance.
-      // Es exactamente el problema que tuvo la pantalla de consentimiento.
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.naranja.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.naranja.withOpacity(0.3)),
-              ),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Icon(Icons.vpn_key_outlined, color: AppColors.naranja, size: 22),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '¿Para qué sirve?\n\nSi llegás al portón y tu teléfono está sin '
-                    'batería, no vas a poder mostrar tu código QR. Decile al guardia '
-                    'tu número de casa y este código: él te va a pedir tu '
-                    'identificación, va a comparar con tu foto registrada y te abre.',
-                    style: TextStyle(
-                      fontSize: 13.5, height: 1.5,
-                      color: AppColors.gris,
-                    ),
-                  ),
-                ),
-              ]),
-            ),
-
+            _explicacion(),
             const SizedBox(height: 20),
-
             if (_cargando)
               const Center(child: Padding(
-                padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+                  padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
             else ...[
-              Row(children: [
-                Icon(
-                  _configurado ? Icons.check_circle : Icons.info_outline,
-                  size: 18,
-                  color: _configurado ? Colors.green.shade600 : AppColors.gris,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _configurado
-                        ? 'Ya tenés un código configurado.'
-                        : 'Todavía no configuraste tu código.',
-                    style: TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w600,
-                      color: _configurado ? Colors.green.shade700 : AppColors.gris,
-                    ),
-                  ),
-                ),
-              ]),
-
-              if (_configurado)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6, left: 26),
-                  child: Text(
-                    'Por seguridad no podemos mostrártelo. Si lo olvidaste, '
-                    'escribí uno nuevo acá abajo y reemplazá el anterior.',
-                    style: TextStyle(fontSize: 12.5, color: AppColors.gris.withOpacity(0.8), height: 1.4),
-                  ),
-                ),
-
-              const SizedBox(height: 24),
-
-              Text(_configurado ? 'Cambiar mi código' : 'Crear mi código',
-                  style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.azul)),
-              const SizedBox(height: 12),
-
-              TextField(
-                controller: _codigoCtrl,
-                keyboardType: TextInputType.number,
-                obscureText: !_ver,
-                maxLength: 6,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(
-                  labelText: 'Código de 6 dígitos',
-                  counterText: '',
-                  prefixIcon: const Icon(Icons.pin_outlined),
-                  suffixIcon: IconButton(
-                    icon: Icon(_ver ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                    onPressed: () => setState(() => _ver = !_ver),
-                    tooltip: _ver ? 'Ocultar' : 'Ver',
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _repetirCtrl,
-                keyboardType: TextInputType.number,
-                obscureText: !_ver,
-                maxLength: 6,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(
-                  labelText: 'Repetí el código',
-                  counterText: '',
-                  prefixIcon: Icon(Icons.pin_outlined),
-                ),
-              ),
-
-              const SizedBox(height: 8),
-              Text(
-                'No uses el mismo dígito seis veces ni una secuencia como 123456, '
-                'y que no sea igual a tu contraseña.',
-                style: TextStyle(fontSize: 12, color: AppColors.gris.withOpacity(0.75), height: 1.4),
-              ),
-
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _guardando ? null : _guardar,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.naranja,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
-                  ),
-                  child: _guardando
-                      ? const SizedBox(width: 20, height: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                      : Text(_configurado ? 'Reemplazar código' : 'Guardar código',
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8F9FA),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Icon(Icons.lightbulb_outline, size: 18, color: AppColors.gris),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Memorizalo ahora: el día que lo necesites vas a tener el '
-                      'teléfono apagado y no vas a poder abrir la app para verlo.',
-                      style: TextStyle(fontSize: 12.5, color: AppColors.gris, height: 1.45),
-                    ),
-                  ),
-                ]),
-              ),
+              _tarjetaCodigo(),
+              const SizedBox(height: 16),
+              if (_editando) _formularioCambio() else _botonCambiar(),
             ],
           ],
         ),
       ),
     );
+  }
+
+  Widget _explicacion() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.naranja.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.naranja.withOpacity(0.3)),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(Icons.vpn_key_outlined, color: AppColors.naranja, size: 22),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Text(
+            'Si llegás al portón con el teléfono sin batería, decile al guardia '
+            'tu número de casa y este código. Él va a pedir tu identificación, '
+            'la compara con tu foto y te deja pasar.',
+            style: TextStyle(fontSize: 13.5, height: 1.5, color: AppColors.gris),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  /// El código actual, oculto como una contraseña, con el ojo para verlo.
+  Widget _tarjetaCodigo() {
+    final Widget contenido;
+    if (!_configurado) {
+      contenido = const Text('Todavía no tenés un código.',
+          style: TextStyle(fontSize: 15, color: AppColors.gris));
+    } else if (_codigo == null) {
+      // Código creado antes de que se guardara la copia que se puede mostrar.
+      contenido = const Text(
+        'Tenés un código, pero se creó antes de que se pudiera ver desde la '
+        'app. Cambialo y a partir de ahí lo vas a poder ver acá.',
+        style: TextStyle(fontSize: 13.5, color: AppColors.gris, height: 1.45));
+    } else {
+      contenido = Row(children: [
+        Expanded(
+          child: Text(
+            _mostrar ? _codigo!.split('').join(' ') : '•  •  •  •  •  •',
+            style: TextStyle(
+              fontSize: 30, fontWeight: FontWeight.w800, letterSpacing: 2,
+              color: AppColors.azul,
+            ),
+          ),
+        ),
+        IconButton(
+          iconSize: 28,
+          tooltip: _mostrar ? 'Ocultar código' : 'Mostrar código',
+          icon: Icon(_mostrar ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+              color: AppColors.azul),
+          onPressed: () => setState(() => _mostrar = !_mostrar),
+        ),
+      ]);
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 10, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borde),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Tu código',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.gris)),
+        const SizedBox(height: 8),
+        contenido,
+      ]),
+    );
+  }
+
+  Widget _botonCambiar() {
+    return OutlinedButton.icon(
+      onPressed: _abrirCambio,
+      icon: const Icon(Icons.edit_outlined),
+      label: Text(_configurado ? 'Cambiar código' : 'Crear código'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.azul,
+        side: BorderSide(color: AppColors.azul, width: 1.4),
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+
+  Widget _formularioCambio() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      TextField(
+        controller: _nuevoCtrl,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        obscureText: !_verNuevo,
+        maxLength: 6,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        onSubmitted: (_) => _cambiar(),
+        decoration: InputDecoration(
+          labelText: 'Nuevo código de 6 dígitos',
+          counterText: '',
+          prefixIcon: const Icon(Icons.pin_outlined),
+          suffixIcon: IconButton(
+            icon: Icon(_verNuevo ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+            onPressed: () => setState(() => _verNuevo = !_verNuevo),
+            tooltip: _verNuevo ? 'Ocultar' : 'Ver',
+          ),
+        ),
+      ),
+      const SizedBox(height: 6),
+      Text(
+        'No repitas el mismo dígito ni uses una secuencia como 123456, '
+        'y que no sea igual a tu contraseña.',
+        style: TextStyle(fontSize: 12, color: AppColors.gris.withOpacity(0.8), height: 1.4),
+      ),
+      const SizedBox(height: 16),
+      ElevatedButton(
+        onPressed: _guardando ? null : _cambiar,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.naranja,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
+        ),
+        child: _guardando
+            ? const SizedBox(width: 20, height: 20,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+            : Text(_configurado ? 'Cambiar' : 'Crear',
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+      ),
+      TextButton(
+        onPressed: _guardando ? null : () => setState(() => _editando = false),
+        child: const Text('Cancelar'),
+      ),
+    ]);
   }
 }

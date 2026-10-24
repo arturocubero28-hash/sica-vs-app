@@ -45,10 +45,6 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
   // por completo la validación llamando directo al endpoint de registro.
   String? _tokenQr;
 
-  // ACCESS-04: botón "Abrir" — apertura manual sin visita asociada
-  List<dynamic> _misTrancas = [];
-  bool _cargandoTrancas = false;
-
   // Fotos como archivos (no base64)
   File? _fotoId;
   File? _fotoPlaca;
@@ -305,118 +301,6 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
     }
   }
 
-  /// ACCESS-04: carga las trancas del punto de acceso del guardia para
-  /// mostrarlas en el diálogo de "Abrir".
-  Future<void> _cargarMisTrancas() async {
-    setState(() => _cargandoTrancas = true);
-    try {
-      final res = await ApiClient.get('/guardias/mis-trancas');
-      final data = res as Map<String, dynamic>;
-      if (mounted) setState(() => _misTrancas = data['trancas'] as List<dynamic>);
-    } catch (_) {
-      if (mounted) {
-        ErrorDialog.mostrar(context, 'No se pudieron cargar las trancas de tu punto');
-      }
-    } finally {
-      if (mounted) setState(() => _cargandoTrancas = false);
-    }
-  }
-
-  /// Muestra el menú de trancas disponibles y, tras confirmación explícita,
-  /// registra la apertura manual (sin visita asociada).
-  Future<void> _abrirMenuManual() async {
-    await _cargarMisTrancas();
-    if (!mounted || _misTrancas.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Tu punto de acceso no tiene trancas configuradas'),
-          backgroundColor: AppColors.amber,
-        ));
-      }
-      return;
-    }
-
-    final tranca = await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('¿Qué querés abrir?',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.azul)),
-            const SizedBox(height: 4),
-            const Text('Se registrará con tu nombre, hora y este punto de acceso',
-                style: TextStyle(fontSize: 12, color: AppColors.gris)),
-            const SizedBox(height: 16),
-            ..._misTrancas.map((t) {
-              final m = t as Map<String, dynamic>;
-              final tipo = m['tipo']?.toString() ?? '';
-              final direccion = m['direccion']?.toString() ?? '';
-              final etiqueta = tipo == 'peatonal'
-                  ? 'Peatonal'
-                  : (direccion == 'salida' ? 'Salida vehicular' : 'Entrada vehicular');
-              final icono = tipo == 'peatonal' ? Icons.directions_walk : Icons.directions_car;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                  icon: Icon(icono, size: 20),
-                  label: Text(etiqueta),
-                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-                  onPressed: () => Navigator.pop(context, m),
-                )),
-              );
-            }),
-          ]),
-        ),
-      ),
-    );
-    if (tranca == null || !mounted) return;
-
-    final confirmado = await _confirmarAperturaManual(tranca);
-    if (confirmado != true || !mounted) return;
-
-    try {
-      await ApiClient.post('/guardias/abrir-manual', {'acceso_id': tranca['id'].toString()});
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('✓ Apertura registrada'),
-        backgroundColor: AppColors.verde,
-      ));
-    } on ApiException catch (e) {
-      if (mounted) {
-        ErrorDialog.mostrar(context, e.message);
-      }
-    } catch (_) {
-      if (mounted) {
-        ErrorDialog.mostrar(context, 'No se pudo registrar la apertura');
-      }
-    }
-  }
-
-  /// Confirmación explícita obligatoria: abrir una tranca sin visita
-  /// asociada no debería ser algo casual — queda auditado.
-  Future<bool?> _confirmarAperturaManual(Map<String, dynamic> tranca) {
-    final tipo = tranca['tipo']?.toString() ?? '';
-    final direccion = tranca['direccion']?.toString() ?? '';
-    final etiqueta = tipo == 'peatonal'
-        ? 'Peatonal'
-        : (direccion == 'salida' ? 'Salida vehicular' : 'Entrada vehicular');
-    return showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded, color: AppColors.amber, size: 32),
-        title: const Text('Confirmar apertura'),
-        content: Text('¿Seguro que querés abrir "$etiqueta" sin una visita registrada? '
-            'Esta acción queda guardada con tu nombre y la hora.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sí, abrir')),
-        ],
-      ),
-    );
-  }
   void _reiniciar() {
     RecuperacionGuardia.limpiar(); // descartar registro en curso
     setState(() {
@@ -468,8 +352,8 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
   Widget _buildScan() {
     // Día 69 — el escáner solo se construye con el permiso ya concedido.
     // Si no lo hay, se muestra una explicación en su lugar, PERO el campo de
-    // código manual y el botón "Abrir" siguen disponibles abajo: un permiso
-    // de cámara negado no puede dejar al guardia sin poder trabajar.
+    // código manual sigue disponible abajo: un permiso de cámara negado no
+    // puede dejar al guardia sin poder trabajar.
     final camaraLista = _camaraOk == true;
     return Stack(children: [
       if (camaraLista)
@@ -511,20 +395,6 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
               child: const Text('Validar'),
             ),
           ]),
-        )),
-      // ACCESS-04: botón "Abrir" — siempre visible, no depende de haber
-      // escaneado nada. Abre trancas del punto del guardia sin visita
-      // asociada, con confirmación obligatoria.
-      Positioned(top: 20, right: 16,
-        child: FloatingActionButton.extended(
-          heroTag: 'btn_abrir_manual',
-          onPressed: _cargandoTrancas ? null : _abrirMenuManual,
-          backgroundColor: AppColors.naranja,
-          icon: _cargandoTrancas
-              ? const SizedBox(width: 16, height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Icon(Icons.lock_open, color: Colors.white),
-          label: const Text('Abrir', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
         )),
     ]);
   }
@@ -589,7 +459,7 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
               const SizedBox(height: 18),
               const Text(
                 'Mientras tanto podés seguir trabajando: escribí el código de '
-                'delivery abajo, o usá el botón Abrir para las trancas.',
+                'delivery abajo, o usá "Dar acceso" para residentes y proveedores.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white38, fontSize: 12.5, height: 1.4),
               ),

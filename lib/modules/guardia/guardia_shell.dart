@@ -111,7 +111,7 @@ class _GuardiaShellState extends State<GuardiaShell> {
           Icon(Icons.shield, color: AppColors.naranja, size: 22),
           const SizedBox(width: 8),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('SICA-VS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            const Text('Villas del Sol', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
             if (nombre.isNotEmpty)
               Text('Guardia: $nombre',
                   style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.8))),

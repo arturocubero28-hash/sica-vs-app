@@ -562,8 +562,9 @@ class GuardiaApi {
 /// Código de emergencia del residente: 6 dígitos para entrar cuando se le
 /// descargó el teléfono y no puede mostrar su QR.
 ///
-/// El código se guarda hasheado en el servidor, así que NUNCA se puede
-/// consultar — solo saber si ya hay uno configurado, y reemplazarlo.
+/// Día 71 — el servidor devuelve el código en "codigo" para que su dueño
+/// pueda verlo si lo olvida (viene null si se creó antes de que existiera
+/// esa opción: hay que cambiarlo para poder verlo).
 class CodigoEmergenciaApi {
   static Future<Map<String, dynamic>> estado() async {
     final res = await ApiClient.get('/auth/codigo-emergencia');

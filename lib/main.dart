@@ -112,7 +112,7 @@ class _SicaVsAppState extends State<SicaVsApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: navigatorKey,
-      title: 'SICA-VS',
+      title: 'Residencial Villas del Sol App',
       theme: AppTheme.theme,
       debugShowCheckedModeBanner: false,
       home: const SplashScreen(),

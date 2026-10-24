@@ -19,7 +19,7 @@ class NotificacionesService {
 
   static const _canal = AndroidNotificationChannel(
     'sicavs_canal',
-    'Notificaciones SICA-VS',
+    'Notificaciones de Villas del Sol',
     description: 'Avisos de cuotas, pagos y visitas',
     importance: Importance.high,
   );
