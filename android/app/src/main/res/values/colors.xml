@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Fondo del ícono adaptativo (lo genera flutter_launcher_icons). -->
+    <color name="ic_launcher_background">#FFFFFF</color>
     <!-- Azul de Villas del Sol: fondo de la pantalla que Android muestra
          mientras arranca la app, para que empalme con la animación de
          entrada en vez de mostrar un destello blanco. -->
