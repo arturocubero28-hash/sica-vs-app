@@ -17,8 +17,16 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
   bool _bloqueado = false;
+
+  // Día 71 — entrada animada: una vez la aparición, y sin fin el giro de
+  // los rayos y el latido del resplandor.
+  late final AnimationController _entrada = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 1700));
+  late final AnimationController _giro = AnimationController(
+      vsync: this, duration: const Duration(seconds: 24));
+  bool _animacionLista = false;
 
   @override
   void initState() {
@@ -26,8 +34,30 @@ class _SplashScreenState extends State<SplashScreen> {
     _verificar();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_animacionLista) return;
+    _animacionLista = true;
+    // Si el teléfono tiene "quitar animaciones" por accesibilidad, se
+    // muestra todo de una vez y quieto.
+    if (MediaQuery.of(context).disableAnimations) {
+      _entrada.value = 1;
+    } else {
+      _entrada.forward();
+      _giro.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _entrada.dispose();
+    _giro.dispose();
+    super.dispose();
+  }
+
   Future<void> _verificar() async {
-    await Future.delayed(const Duration(milliseconds: 1200));
+    await Future.delayed(const Duration(milliseconds: 2200));
     if (!mounted) return;
 
     // Día 64 — pedido del usuario: pedir el permiso de cámara al arrancar
@@ -144,8 +174,8 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const MarcaResidencial(tamLogo: 108),
-            const SizedBox(height: 48),
+            MarcaAnimada(entrada: _entrada, giro: _giro, tamLogo: 108),
+            const SizedBox(height: 32),
             if (_bloqueado) ...[
               const Icon(Icons.lock_outline, color: Colors.white70, size: 32),
               const SizedBox(height: 12),
@@ -168,10 +198,15 @@ class _SplashScreenState extends State<SplashScreen> {
                     style: TextStyle(color: Colors.white54)),
               ),
             ] else
-              const SizedBox(
-                width: 24, height: 24,
-                child: CircularProgressIndicator(
-                    color: AppColors.naranjaDeFabrica, strokeWidth: 2.5),
+              // La ruedita aparece recién al final de la animación: si el
+              // arranque es rápido ni se ve, y si tarda, avisa que sigue.
+              FadeTransition(
+                opacity: CurvedAnimation(parent: _entrada, curve: const Interval(0.85, 1.0)),
+                child: const SizedBox(
+                  width: 24, height: 24,
+                  child: CircularProgressIndicator(
+                      color: AppColors.naranjaDeFabrica, strokeWidth: 2.5),
+                ),
               ),
           ],
         ),
