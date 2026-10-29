@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api/client.dart';
 import '../api/bloqueo_biometrico.dart';
-import '../api/credenciales_guardadas.dart';
 import '../widgets/marca_residencial.dart';
 import '../theme/app_theme.dart';
 import '../modules/shared/role_router.dart';
@@ -24,20 +23,16 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passCtrl     = TextEditingController();
   bool _cargando      = false;
   bool _verPass       = false;
-  // Día 65 — login biométrico
+  // Día 72 — ya no hay "iniciar sesión con huella" (guardaba la contraseña
+  // en el teléfono). Se inicia sesión UNA vez con contraseña y la huella
+  // queda solo para DESBLOQUEAR la app (ver bloqueo_biometrico.dart).
   bool _biometricoDisponible = false;
-  bool _biometricoActivo     = false;
-  // Día 69 — a QUÉ cuenta pertenece la huella guardada. Antes no se guardaba
-  // esta referencia en ningún lado: el casillero de credenciales era único y
-  // anónimo, así que la app no sabía de quién eran y el botón de huella
-  // entraba siempre con la primera cuenta que se hubiera guardado.
-  String? _emailBiometrico;
 
 
   @override
   void initState() {
     super.initState();
-    _verificarBiometrico();
+    _prepararFormulario();
     // Día 63 — antes se guardaba en _error y se mostraba como texto chico
     // dentro del formulario, fácil de pasar por alto justo en el momento
     // en que más importa que la persona lo note (fue expulsada de su
@@ -104,76 +99,25 @@ class _LoginScreenState extends State<LoginScreen> {
     }).catchError((_) {});
   }
 
-  Future<void> _verificarBiometrico() async {
+  Future<void> _prepararFormulario() async {
     final disponible = await BloqueoBiometrico.disponible();
-    final activo = await CredencialesGuardadas.estaActivo();
-    final email = activo ? await CredencialesGuardadas.getEmail() : null;
+    final email = await AuthStorage.getUltimoEmail();
     if (!mounted) return;
-    setState(() {
-      _biometricoDisponible = disponible;
-      _biometricoActivo = activo;
-      _emailBiometrico = email;
-    });
+    setState(() => _biometricoDisponible = disponible);
     if (email != null && _emailCtrl.text.isEmpty) {
       _emailCtrl.text = email;
     }
   }
 
-  /// Día 70 — marca si el login en curso lo disparó la huella. Sin esto no
-  /// hay forma de saber, en el manejo del error, si la contraseña que falló
-  /// la escribió la persona o salió del casillero guardado -- y solo en el
-  /// segundo caso corresponde borrar la credencial.
-  bool _veniaDeHuella = false;
-
-  Future<void> _loginBiometrico() async {
-    final ok = await BloqueoBiometrico.autenticar(
-        motivo: 'Usa tu huella para iniciar sesion');
-    if (!ok || !mounted) return;
-    final creds = await CredencialesGuardadas.getCredenciales();
-    if (creds == null) {
-      // Día 70 — si la contraseña guardada no está, lo guardado YA NO SIRVE
-      // para nada. Antes solo se apagaba la opción en pantalla y el correo
-      // seguía guardado, así que al volver al login el botón "Entrar con
-      // huella" reaparecía y fallaba otra vez. Se borra de verdad.
-      await CredencialesGuardadas.limpiar();
-      if (!mounted) return;
-      ErrorDialog.mostrar(context,
-          'El acceso con huella se desconfiguró en este teléfono. '
-          'Entrá con tu contraseña y volvé a activarlo.');
-      setState(() {
-        _biometricoActivo = false;
-        _emailBiometrico = null;
-      });
-      return;
-    }
-    _emailCtrl.text = creds.email;
-    _passCtrl.text  = creds.password;
-    _veniaDeHuella = true;
-    try {
-      await _login();
-    } finally {
-      _veniaDeHuella = false;
-    }
-  }
-
-  /// Día 69 — corrige que la huella quedara atada para siempre a la primera
-  /// cuenta que la activó.
+  /// Día 72 — después de iniciar sesión se ofrece proteger la app con la
+  /// huella. Es solo un candado LOCAL: la contraseña no se guarda y la
+  /// sesión sigue abierta en el servidor con o sin esto.
   ///
-  /// ANTES la guarda era `if (!_biometricoDisponible || _biometricoActivo)
-  /// return;` — o sea, apenas CUALQUIER cuenta activaba la huella, a ninguna
-  /// otra se le volvía a ofrecer. Las credenciales guardadas seguían siendo
-  /// las de la primera, así que el botón "Entrar con huella" entraba como esa
-  /// cuenta sin importar quién estuviera usando la app.
-  ///
-  /// Regla acordada: gana la ÚLTIMA cuenta que guarda su huella. Si ya hay
-  /// otra guardada, se ofrece reemplazarla y se avisa cuál se va a perder —
-  /// el reemplazo nunca es silencioso.
-  Future<void> _sugerirBiometrico(String email, String password) async {
-    if (!_biometricoDisponible) return;
-    final guardado = await CredencialesGuardadas.getEmail();
-    // Esta misma cuenta ya está guardada: nada que ofrecer.
-    if (guardado != null && guardado.toLowerCase() == email.toLowerCase()) return;
-    final esReemplazo = guardado != null && guardado.isNotEmpty;
+  /// No se ofrece al guardia: su sesión vence con el turno y el teléfono
+  /// de la caseta suele ser compartido.
+  Future<void> _ofrecerDesbloqueoConHuella(String rol) async {
+    if (!_biometricoDisponible || rol == 'guardia') return;
+    if (await BloqueoBiometrico.estaActivo()) return;
     await Future.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
     final aceptado = await showDialog<bool>(
@@ -193,16 +137,15 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Icon(Icons.fingerprint, color: AppColors.naranja, size: 30),
             ),
             const SizedBox(height: 16),
-            Text(esReemplazo ? 'Usar la huella para esta cuenta?' : 'Activar acceso con huella?',
+            Text('¿Proteger la app con tu huella?',
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.azul),
               textAlign: TextAlign.center),
             const SizedBox(height: 10),
-            Text(
-              esReemplazo
-                ? 'La huella de este telefono va a quedar ligada a $email. '
-                  'Se va a dejar de usar para $guardado.'
-                : 'La proxima vez podes entrar sin escribir tu contrasena, solo con tu huella dactilar.',
-              style: const TextStyle(fontSize: 13.5, color: AppColors.gris, height: 1.4),
+            const Text(
+              'Tu sesión va a quedar abierta en este teléfono hasta que la cierres. '
+              'Si activás esto, cada vez que abras la app te vamos a pedir tu huella '
+              'para desbloquearla. Lo podés cambiar después en Más.',
+              style: TextStyle(fontSize: 13.5, color: AppColors.gris, height: 1.4),
               textAlign: TextAlign.center),
             const SizedBox(height: 22),
             SizedBox(width: double.infinity,
@@ -214,8 +157,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),
-                child: Text(esReemplazo ? 'Usar esta cuenta' : 'Activar',
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                child: const Text('Activar',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
               ),
             ),
             const SizedBox(height: 10),
@@ -227,16 +170,9 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
-    if (aceptado == true && mounted) {
-      // activar() escribe sobre el mismo casillero: guardar una cuenta nueva
-      // borra la anterior. Es la regla de "gana la ultima" que acordamos.
-      await CredencialesGuardadas.activar(email, password);
-      if (mounted) {
-        setState(() {
-          _biometricoActivo = true;
-          _emailBiometrico = email;
-        });
-      }
+    if (aceptado == true) {
+      // activar(true) pide la huella una vez para confirmar que funciona.
+      await BloqueoBiometrico.activar(true);
     }
   }
 
@@ -259,7 +195,11 @@ class _LoginScreenState extends State<LoginScreen> {
       final user  = res['usuario'] as Map<String, dynamic>;
       final rol   = user['rol'] as String;
 
-      await AuthStorage.guardar(token, rol, user);
+      // Día 72 — refresh_token: la sesión queda abierta hasta que la
+      // persona la cierre. El servidor no lo manda para el guardia.
+      await AuthStorage.guardar(token, rol, user,
+          refresh: res['refresh_token'] as String?);
+      await AuthStorage.setUltimoEmail(_emailCtrl.text.trim().toLowerCase());
       // Día 63: marca que este arranque de GuardiaShell viene de un login
       // real (usuario/contraseña), no de una simple reapertura de la app.
       AuthStorage.esLoginFresco = true;
@@ -269,54 +209,15 @@ class _LoginScreenState extends State<LoginScreen> {
       _intentosFallidos = 0; // reset on success
 
       if (!mounted) return;
-      // Dia 66 — sugerir activar biometria ANTES de navegar.
-      // RoleRouter.navegar() usa pushReplacement, destruyendo el context
-      // del login. Si _sugerirBiometrico se llamaba despues, showDialog()
-      // fallaba silenciosamente y activar() nunca se ejecutaba -- por eso
-      // al cerrar sesion no aparecia el boton de huella ni se recordaba
-      // el email.
-      final emailUsado = _emailCtrl.text.trim().toLowerCase();
-      final passUsada  = _passCtrl.text;
-      await _sugerirBiometrico(emailUsado, passUsada);
+      // Dia 66 — el diálogo va ANTES de navegar: RoleRouter.navegar()
+      // destruye el context del login y un showDialog() posterior fallaba
+      // en silencio.
+      await _ofrecerDesbloqueoConHuella(rol);
       if (!mounted) return;
+      AuthStorage.desbloqueada = true;
       RoleRouter.navegar(context, rol);
     } on ApiException catch (e) {
-      // Día 70 — si el intento venía de la huella y el servidor rechazó la
-      // contraseña, la credencial guardada quedó vieja (la cambiaron desde
-      // la web, por ejemplo). Se borra ACÁ MISMO.
-      //
-      // Antes no se borraba, y el costo no era solo una molestia: el
-      // servidor permite 5 intentos cada 15 minutos POR IP. Cada toque al
-      // botón de la huella gastaba uno de esos cinco sin que la persona lo
-      // supiera, y en cuatro toques quedaba sin poder entrar ni con la
-      // contraseña correcta. Un residente podía dejarse afuera de su propia
-      // cuenta sin escribir una sola letra mal.
-      // Día 70 — SOLO se borra la credencial guardada cuando el servidor
-      // dice que la contraseña está mal. Nada más.
-      //
-      // La primera versión de este arreglo borraba ante CUALQUIER error, y
-      // eso convertía el bloqueo por intentos en una pérdida de datos: al
-      // repetir la prueba se superaban los 5 intentos por IP, el servidor
-      // respondía 'demasiados_intentos', y la app interpretaba eso como
-      // "la contraseña guardada no sirve" y la borraba. El usuario perdía
-      // su acceso con huella por un límite que no tiene nada que ver con
-      // si su contraseña es correcta.
-      //
-      // Un 429 (muchos intentos), un 500 o un corte de red no dicen
-      // absolutamente nada sobre la credencial. Solo
-      // 'credenciales_invalidas' lo dice.
-      final credencialRechazada = e.code == 'credenciales_invalidas';
       final bloqueoDelServidor  = e.code == 'demasiados_intentos';
-
-      if (_veniaDeHuella && credencialRechazada) {
-        await CredencialesGuardadas.limpiar();
-        if (mounted) {
-          setState(() {
-            _biometricoActivo = false;
-            _emailBiometrico = null;
-          });
-        }
-      }
       if (!mounted) return;
 
       if (bloqueoDelServidor) {
@@ -330,14 +231,6 @@ class _LoginScreenState extends State<LoginScreen> {
       if (_intentosFallidos >= _maxIntentos) {
         _bloqueadoHasta = DateTime.now().add(const Duration(minutes: _minutosBloqueo));
         ErrorDialog.mostrar(context, 'Demasiados intentos fallidos. Bloqueado por $_minutosBloqueo minutos.');
-      } else if (_veniaDeHuella && credencialRechazada) {
-        ErrorDialog.mostrar(context,
-            'La contraseña guardada para la huella ya no es válida. '
-            'Entrá con tu contraseña y volvé a activar la huella.');
-      } else if (_veniaDeHuella) {
-        // Falló por otra cosa (red, servidor). La huella sigue guardada.
-        ErrorDialog.mostrar(context,
-            'No se pudo entrar con la huella: ${e.message}');
       } else {
         final restantes = _maxIntentos - _intentosFallidos;
         ErrorDialog.mostrar(context, '${e.message} ($restantes intentos restantes)');
@@ -466,33 +359,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             : Text(_estaBloqueado ? 'Bloqueado ($_tiempoRestante)' : 'Entrar'),
                       ),
 
-                      // Dia 65 — boton de huella si hay credenciales guardadas
-                      if (_biometricoActivo) ...[
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: _cargando ? null : _loginBiometrico,
-                          icon: const Icon(Icons.fingerprint),
-                          // Dia 69 — el boton dice de QUIEN es la huella
-                          // guardada. Antes decia solo "Entrar con huella" y
-                          // entraba con una cuenta que podia no ser la que el
-                          // usuario tenia escrita en el formulario.
-                          label: Text(
-                            _emailBiometrico == null
-                                ? 'Entrar con huella'
-                                : 'Entrar con huella · $_emailBiometrico',
-                            textAlign: TextAlign.center,
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            // Día 66 — era blanco sobre la tarjeta blanca del
-                            // formulario: el botón se renderizaba pero era
-                            // completamente invisible.
-                            foregroundColor: AppColors.azulDeFabrica,
-                            side: const BorderSide(color: AppColors.naranjaDeFabrica, width: 1.5),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),

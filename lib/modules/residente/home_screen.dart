@@ -29,7 +29,7 @@ class _ImagenAutenticadaState extends State<_ImagenAutenticada> {
 
   Future<void> _cargar() async {
     try {
-      final token = await AuthStorage.getToken();
+      final token = await ApiClient.tokenVigente();
       final res = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/comunicados/imagenes/${widget.nombreArchivo}'),
         headers: {

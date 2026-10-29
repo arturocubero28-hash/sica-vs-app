@@ -142,7 +142,8 @@ class _MasScreenState extends State<MasScreen> {
                 MaterialPageRoute(builder: (_) => const MiEdificioScreen())),
           ),
 
-        // Toggle de bloqueo con huella (solo si el dispositivo lo soporta)
+        // Día 72 — desbloqueo con huella (local). No tiene nada que ver con
+        // iniciar sesión: la sesión queda abierta hasta que se cierre.
         if (_biometriaDisponible)
           Card(
             margin: const EdgeInsets.only(bottom: 10),
@@ -156,9 +157,9 @@ class _MasScreenState extends State<MasScreen> {
                 ),
                 child: const Icon(Icons.fingerprint, color: AppColors.verde, size: 22),
               ),
-              title: Text('Bloquear con huella',
+              title: Text('Desbloquear con huella',
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
-              subtitle: const Text('Pedir tu huella al abrir la app',
+              subtitle: const Text('Pedir tu huella cada vez que abrís la app. Tu sesión sigue abierta.',
                   style: TextStyle(fontSize: 12, color: AppColors.gris)),
               value: _bloqueoActivo,
               activeColor: AppColors.naranja,

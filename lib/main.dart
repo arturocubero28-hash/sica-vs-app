@@ -8,6 +8,7 @@ import 'screens/splash_screen.dart';
 import 'dart:io';
 import 'api/firebase_ios.dart';
 import 'api/notificaciones.dart';
+import 'api/bloqueo_app.dart';
 
 /// Día 58 (A-2) — clave global de navegación. Permite navegar a una pantalla
 /// (ej. el login) desde fuera del árbol de widgets, como client.dart, que no
@@ -53,6 +54,10 @@ void main() async {
   // dependa de la red, de Play Services o de que el usuario conteste
   // algo, va después -- la persona ve la app mientras tanto.
   runApp(const SicaVsApp());
+
+  // Día 72 — pide la huella al volver a la app después de un rato en
+  // segundo plano (si la persona activó el desbloqueo con huella).
+  GuardianBloqueo.instancia.iniciar();
 
   _inicializarServiciosEnSegundoPlano();
 }

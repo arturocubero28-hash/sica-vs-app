@@ -8,10 +8,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// huella al ABRIR la app, para proteger la información sensible (cuotas,
 /// pagos, generación de QR) si alguien más agarra el teléfono desbloqueado.
 ///
-/// Es OPCIONAL: el residente decide si lo activa desde la sección Más.
+/// Día 72 — quedan DOS cosas bien separadas:
+///   · Iniciar sesión = correo + contraseña, una sola vez. La sesión queda
+///     abierta en el servidor hasta que la persona la cierre.
+///   · Desbloquear = esta clase. Es local, en el teléfono: la huella nunca
+///     viaja al servidor ni reemplaza a la contraseña. Ya no existe el
+///     "iniciar sesión con huella", que obligaba a guardar la contraseña
+///     en el teléfono.
+///
+/// Es OPCIONAL: se ofrece al iniciar sesión y se cambia desde Más.
 class BloqueoBiometrico {
   static final _auth = LocalAuthentication();
   static const _prefKey = 'bloqueo_biometrico_activo';
+
+  /// true mientras el diálogo de huella está en pantalla. En algunos
+  /// teléfonos ese diálogo manda la app a "segundo plano" por un instante;
+  /// el bloqueo automático (bloqueo_app.dart) lo ignora mientras tanto.
+  static bool enCurso = false;
 
   /// ¿El dispositivo tiene huella/rostro configurado y disponible?
   static Future<bool> disponible() async {
@@ -44,6 +57,7 @@ class BloqueoBiometrico {
 
   /// Pide la autenticación biométrica. Devuelve true si fue exitosa.
   static Future<bool> autenticar({String motivo = 'Verificá tu identidad'}) async {
+    enCurso = true;
     try {
       return await _auth.authenticate(
         localizedReason: motivo,
@@ -54,6 +68,8 @@ class BloqueoBiometrico {
       );
     } catch (_) {
       return false;
+    } finally {
+      enCurso = false;
     }
   }
 }

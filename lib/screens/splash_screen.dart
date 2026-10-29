@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../api/client.dart';
 import '../api/bloqueo_biometrico.dart';
+import '../api/credenciales_guardadas.dart';
 import '../widgets/marca_residencial.dart';
 import '../theme/app_theme.dart';
 import '../modules/shared/role_router.dart';
@@ -56,85 +57,74 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     super.dispose();
   }
 
+  /// Día 72 — orden nuevo, estilo WhatsApp:
+  ///   1. ¿Hay sesión guardada? Si no, login (o consentimiento).
+  ///   2. Desbloqueo LOCAL con huella, si la persona lo activó. Va primero
+  ///      porque es instantáneo y no depende de la red.
+  ///   3. Verificar la sesión con el servidor (renovándola sola si el JWT
+  ///      venció). Solo se va al login si el servidor dice que la sesión
+  ///      se cerró de verdad. Sin red, se entra igual.
+  ///
+  /// Antes se pedía la contraseña cada vez que el JWT de 12 horas había
+  /// vencido, y además cualquier error genérico del servidor ('ERROR')
+  /// también mandaba al login.
   Future<void> _verificar() async {
     await Future.delayed(const Duration(milliseconds: 2200));
     if (!mounted) return;
 
-    // Día 64 — pedido del usuario: pedir el permiso de cámara al arrancar
-    // la app (no solo cuando el guardia entra al escáner). De lo contrario,
-    // el módulo del guardia arrancaba con la cámara denegada porque el
-    // permiso recién se pedía cuando ya necesitaba usarse, demasiado tarde
-    // para que Android pudiera mostrarlo sin interrumpir el flujo.
-    // Se pide silenciosamente (sin diálogo propio): si Android muestra su
-    // pop-up de permiso, bienvenido; si ya fue concedido, no hace nada.
-    // Día 64 — se intentó pedir el permiso de cámara aquí al arrancar,
-    // pero causaba que la app se quedara pegada en el splash en algunos
-    // dispositivos Samsung después de que el usuario concedía el permiso.
-    // El permiso se pide directamente en scanner_screen cuando se necesita.
+    // Teléfonos que tenían "iniciar sesión con huella": se borra la
+    // contraseña que quedó guardada (una sola vez).
+    await CredencialesGuardadas.borrarContrasenaGuardada();
+
+    // Día 64 — el permiso de cámara NO se pide acá: dejaba la app pegada
+    // en el inicio en algunos Samsung. Se pide en scanner_screen.
+    final haySesion = await AuthStorage.tieneSesion();
+    final rol = await AuthStorage.getRol();
     if (!mounted) return;
-
-    final token = await AuthStorage.getToken();
-    final rol   = await AuthStorage.getRol();
-
-    if (token == null || rol == null) {
-      // Día 64 — chequeo de consentimiento: si el usuario nunca aceptó los
-      // términos (primera apertura de la app, o si los documentos se
-      // actualizaron), mostrar la pantalla de consentimiento antes del login.
-      final necesita = await ConsentimientoScreen.necesitaConsentimiento();
-      if (!mounted) return;
-      if (necesita) {
-        Navigator.of(context).pushReplacement(MaterialPageRoute(
-          builder: (_) => const ConsentimientoScreen(),
-        ));
-      } else {
-        Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const LoginScreen()));
-      }
+    if (!haySesion || rol == null) {
+      await _irAlLogin();
       return;
     }
 
-    // Verificar que el token sigue siendo válido en el servidor.
-    // Si el JWT expiró, el servidor devuelve 401 → _parse() limpia el token
-    // → redirigir al login en vez de mostrar la app con errores de "token inválido".
-    try {
-      await ApiClient.get('/auth/me');
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      // El token expiró o fue revocado — ir al login
-      if (e.code == 'no_autorizado' || e.code == 'ERROR') {
-        final necesita = await ConsentimientoScreen.necesitaConsentimiento();
-        if (!mounted) return;
-        if (necesita) {
-          Navigator.of(context).pushReplacement(MaterialPageRoute(
-            builder: (_) => const ConsentimientoScreen(),
-          ));
-        } else {
-          Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const LoginScreen()));
-        }
-        return;
-      }
-    } catch (_) {
-      // Sin conexión — dejar entrar igual (funciona offline con datos en caché)
-      // El primer request que haga fallará con error de red, no con 401
-    }
-
-    // Intentar recuperar comprobante pendiente
-    await _recuperarComprobanteSiHubo();
-
-    // Si el bloqueo biométrico está activo, pedir huella antes de entrar.
-    final bloqueoActivo = await BloqueoBiometrico.estaActivo();
-    if (bloqueoActivo) {
+    if (await BloqueoBiometrico.estaActivo()) {
       final ok = await BloqueoBiometrico.autenticar(
-        motivo: 'Desbloqueá la app con tu huella',
+        motivo: 'Desbloqueá Villas del Sol',
       );
       if (!ok) {
         if (mounted) setState(() => _bloqueado = true);
         return;
       }
     }
+    await _entrar(rol);
+  }
+
+  Future<void> _entrar(String rol) async {
+    final estado = await ApiClient.verificarSesion();
     if (!mounted) return;
+    if (estado == EstadoSesion.cerrada) {
+      await AuthStorage.limpiar();
+      AppColors.restablecerFabrica();
+      await _irAlLogin(mensaje: 'Tu sesión se cerró. Iniciá sesión de nuevo.');
+      return;
+    }
+    // valida o sinConexion: se entra. Sin red la app trabaja con lo que
+    // tiene en caché; la próxima petición renueva la sesión sola.
+    await _recuperarComprobanteSiHubo();
+    if (!mounted) return;
+    AuthStorage.desbloqueada = true;
     RoleRouter.navegar(context, rol);
+  }
+
+  Future<void> _irAlLogin({String? mensaje}) async {
+    // Día 64 — si nunca aceptó los términos (o se actualizaron), primero
+    // la pantalla de consentimiento.
+    final necesita = await ConsentimientoScreen.necesitaConsentimiento();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(MaterialPageRoute(
+      builder: (_) => necesita
+          ? const ConsentimientoScreen()
+          : LoginScreen(mensajeInicial: mensaje),
+    ));
   }
 
   /// Si Android mató la app mientras el residente tomaba una foto de
@@ -150,12 +140,16 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
   Future<void> _reintentar() async {
     final ok = await BloqueoBiometrico.autenticar(
-      motivo: 'Desbloqueá la app con tu huella',
+      motivo: 'Desbloqueá Villas del Sol',
     );
-    if (ok && mounted) {
-      final rol = await AuthStorage.getRol();
-      if (rol != null && mounted) RoleRouter.navegar(context, rol);
+    if (!ok || !mounted) return;
+    final rol = await AuthStorage.getRol();
+    if (rol == null) {
+      await _irAlLogin();
+      return;
     }
+    setState(() => _bloqueado = false);
+    await _entrar(rol);
   }
 
   Future<void> _cerrarSesion() async {
@@ -181,7 +175,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
               const SizedBox(height: 12),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 40),
-                child: Text('App bloqueada. Usá tu huella para entrar.',
+                child: Text('App bloqueada. Tu sesión sigue abierta: usá tu huella para entrar.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white70, fontSize: 14)),
               ),

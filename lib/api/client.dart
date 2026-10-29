@@ -11,7 +11,6 @@ import '../main.dart' show navigatorKey;
 import '../theme/app_theme.dart';
 import '../screens/login_screen.dart';
 import 'almacen_seguro.dart';
-import 'credenciales_guardadas.dart' as credenciales_guardadas;
 
 // ── Nombre/logo de la residencial (Día 46) ─────────────────────────────────────
 /// Caché del nombre y logo de la residencial del usuario logueado.
@@ -104,9 +103,17 @@ class AuthStorage {
   static const _secure = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true, resetOnError: true),
   );
-  static const _tokenKey = 'sica_token';
-  static const _rolKey   = 'sica_rol';
-  static const _userKey  = 'sica_user';
+  static const _tokenKey   = 'sica_token';
+  static const _refreshKey = 'sica_refresh';
+  static const _rolKey     = 'sica_rol';
+  static const _userKey    = 'sica_user';
+  static const _ultimoEmailKey = 'ultimo_email';
+
+  // Día 72 — la app quedó "abierta" en este arranque: la persona ya pasó
+  // por el login o por la huella. Solo vive en memoria. El bloqueo al
+  // volver de segundo plano (bloqueo_app.dart) solo actúa si está en true,
+  // para no tapar el login ni la pantalla de inicio.
+  static bool desbloqueada = false;
 
   // Día 63 — pedido del usuario: el guardia debe confirmar su punto de
   // acceso en cada INICIO DE SESIÓN real (escribir usuario/contraseña),
@@ -125,15 +132,59 @@ class AuthStorage {
   // forzar la pregunta.
   static bool esLoginFresco = false;
 
-  static Future<void> guardar(String token, String rol, Map user) async {
+  /// Día 72 — [refresh] es el token de renovación: con él la sesión queda
+  /// abierta hasta que la persona la cierre (estilo WhatsApp). El servidor
+  /// no lo da a todos los roles (al guardia no): en ese caso llega null y
+  /// la sesión vence sola con el turno, como antes.
+  static Future<void> guardar(String token, String rol, Map user,
+      {String? refresh}) async {
     await _secure.write(key: _tokenKey, value: token);
+    if (refresh != null && refresh.isNotEmpty) {
+      await _secure.write(key: _refreshKey, value: refresh);
+    } else {
+      await _secure.delete(key: _refreshKey);
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_rolKey, rol);
     await prefs.setString(_userKey, jsonEncode(user));
   }
 
+  /// Guarda lo que devuelve POST /auth/renovar.
+  static Future<void> guardarRenovacion(
+      String token, String refresh, Map<String, dynamic>? user) async {
+    await _secure.write(key: _tokenKey, value: token);
+    await _secure.write(key: _refreshKey, value: refresh);
+    if (user != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_userKey, jsonEncode(user));
+    }
+  }
+
   static Future<String?> getToken() async {
     return leerSeguro(_secure, _tokenKey);
+  }
+
+  static Future<String?> getRefresh() async {
+    return leerSeguro(_secure, _refreshKey);
+  }
+
+  /// ¿Hay sesión guardada en este teléfono? (aunque el JWT esté vencido:
+  /// con el token de renovación se recupera sin pedir contraseña).
+  static Future<bool> tieneSesion() async {
+    return (await getToken()) != null || (await getRefresh()) != null;
+  }
+
+  /// Último correo con el que se entró: se sugiere en el login. No es
+  /// sensible y sobrevive al cierre de sesión a propósito.
+  static Future<String?> getUltimoEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    final e = prefs.getString(_ultimoEmailKey);
+    return (e != null && e.isNotEmpty) ? e : null;
+  }
+
+  static Future<void> setUltimoEmail(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_ultimoEmailKey, email);
   }
 
   static Future<String?> getRol() async {
@@ -149,7 +200,9 @@ class AuthStorage {
   }
 
   static Future<void> limpiar() async {
+    desbloqueada = false;
     await _secure.delete(key: _tokenKey);
+    await _secure.delete(key: _refreshKey);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_rolKey);
     await prefs.remove(_userKey);
@@ -184,29 +237,174 @@ class AuthStorage {
       // normal si hacía rato que no se usaba la app), no corresponde
       // mostrar "tu sesión se cerró desde otro dispositivo" -- eso es
       // engañoso en un logout que el propio usuario inició.
-      await ApiClient.post('/auth/logout', {}, expulsarSi401: false);
+      // Día 72 — se manda el token de renovación: es lo que de verdad
+      // mantiene viva la sesión en el servidor. Con él, el logout funciona
+      // aunque el JWT ya esté vencido (sin pedir uno nuevo para cerrar).
+      final refresh = await getRefresh();
+      await ApiClient.post(
+        '/auth/logout',
+        {if (refresh != null) 'refresh_token': refresh},
+        auth: refresh == null,
+        expulsarSi401: false,
+      );
     } catch (_) {
       // Sin conexión o token ya inválido — no bloquear el logout local
     }
     ResidencialCache.clear();
     await limpiar();
-    // Día 65 — las credenciales biométricas (email + contraseña guardados)
-    // NO se borran al cerrar sesión manual. El usuario eligió guardarlas
-    // para no tener que escribirlas cada vez — cerrar sesión no significa
-    // que quiera desactivar esa preferencia. Solo se borran si el usuario
-    // desactiva la biometría explícitamente desde la configuración.
   }
 }
+
+/// Día 72 — resultado de intentar renovar la sesión.
+///  ok          → hay JWT nuevo guardado.
+///  rechazada   → el servidor dice que la sesión ya no existe (la cerraron,
+///                cambiaron la contraseña, pasaron 180 días...). Hay que ir
+///                al login.
+///  sinConexion → no se pudo saber (sin red, servidor caído). NO se cierra
+///                la sesión: se reintenta más tarde.
+enum ResultadoRenovacion { ok, rechazada, sinConexion }
+
+/// Día 72 — estado de la sesión al abrir la app.
+enum EstadoSesion { valida, cerrada, sinConexion }
 
 // ── Cliente HTTP base ─────────────────────────────────────────────────────────
 class ApiClient {
   static Future<Map<String, String>> _headers({bool auth = true}) async {
     final h = Map<String, String>.from(ApiConfig.headers);
     if (auth) {
-      final token = await AuthStorage.getToken();
+      final token = await _tokenVigente();
       if (token != null) h['Authorization'] = 'Bearer $token';
     }
     return h;
+  }
+
+  // ── Sesión persistente (Día 72) ────────────────────────────────────────
+  //
+  // El JWT dura 12 horas. Antes, al vencer, el servidor respondía 401 y la
+  // app mandaba al login: por eso pedía la contraseña cada vez que se
+  // abría al otro día. Ahora, si hay token de renovación:
+  //   1. Antes de cada petición, si al JWT le quedan menos de 2 minutos,
+  //      se renueva primero (_tokenVigente).
+  //   2. Si igual llega un 401, se renueva y se repite la petición una vez
+  //      (_enviar).
+  //   3. Solo si el SERVIDOR rechaza la renovación se va al login.
+  // Si no hay red, nunca se cierra la sesión: se reintenta después.
+
+  /// JWT listo para usar, renovándolo antes si está por vencer. Público
+  /// para las imágenes que se piden fuera de ApiClient (Image.network).
+  static Future<String?> tokenVigente() => _tokenVigente();
+
+  static Future<String?> _tokenVigente() async {
+    final token = await AuthStorage.getToken();
+    if (!_porVencer(token)) return token;
+    if (await AuthStorage.getRefresh() == null) return token;
+    await renovarSesion();
+    return AuthStorage.getToken();
+  }
+
+  static bool _porVencer(String? jwt) {
+    if (jwt == null) return true;
+    final vence = _vencimientoJwt(jwt);
+    if (vence == null) return false; // ilegible: que decida el servidor
+    return DateTime.now().toUtc()
+        .isAfter(vence.subtract(const Duration(minutes: 2)));
+  }
+
+  /// Lee el campo "exp" del JWT. No verifica la firma (eso es trabajo del
+  /// servidor): solo sirve para saber cuándo conviene renovar.
+  static DateTime? _vencimientoJwt(String jwt) {
+    try {
+      final partes = jwt.split('.');
+      if (partes.length != 3) return null;
+      final payload = utf8.decode(base64Url.decode(base64Url.normalize(partes[1])));
+      final exp = (jsonDecode(payload) as Map)['exp'];
+      if (exp is num) {
+        return DateTime.fromMillisecondsSinceEpoch(exp.toInt() * 1000, isUtc: true);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // Una sola renovación a la vez: si tres pantallas piden datos al mismo
+  // tiempo con el JWT vencido, las tres esperan la MISMA renovación. Si
+  // cada una renovara por su cuenta, la segunda llegaría con un token ya
+  // rotado y el servidor lo tomaría como robo.
+  static Future<ResultadoRenovacion>? _renovacionEnCurso;
+
+  static Future<ResultadoRenovacion> renovarSesion() {
+    return _renovacionEnCurso ??=
+        _renovar().whenComplete(() => _renovacionEnCurso = null);
+  }
+
+  static Future<ResultadoRenovacion> _renovar() async {
+    final refresh = await AuthStorage.getRefresh();
+    if (refresh == null) return ResultadoRenovacion.rechazada;
+    http.Response? res;
+    try {
+      res = await http
+          .post(Uri.parse('${ApiConfig.baseUrl}/auth/renovar'),
+              headers: Map<String, String>.from(ApiConfig.headers),
+              body: jsonEncode({'refresh_token': refresh}))
+          .timeout(ApiConfig.timeout);
+    } catch (_) {
+      res = null;
+    }
+    if (res == null) return ResultadoRenovacion.sinConexion;
+    if (res.statusCode == 200) {
+      try {
+        final data = (jsonDecode(utf8.decode(res.bodyBytes)) as Map)['data'] as Map;
+        await AuthStorage.guardarRenovacion(
+          data['token'] as String,
+          data['refresh_token'] as String,
+          (data['usuario'] as Map?)?.cast<String, dynamic>(),
+        );
+        return ResultadoRenovacion.ok;
+      } catch (_) {
+        return ResultadoRenovacion.sinConexion;
+      }
+    }
+    // 401 = la sesión ya no existe. Cualquier otra cosa (429, 500, proxy)
+    // no dice nada sobre la sesión: se reintenta más tarde.
+    return res.statusCode == 401
+        ? ResultadoRenovacion.rechazada
+        : ResultadoRenovacion.sinConexion;
+  }
+
+  /// Hace la petición; si responde 401 y hay token de renovación, renueva
+  /// y la repite una vez con el JWT nuevo.
+  static Future<http.Response> _enviar(
+      Future<http.Response> Function(Map<String, String> headers) hacer,
+      {bool auth = true}) async {
+    var res = await hacer(await _headers(auth: auth));
+    if (auth && res.statusCode == 401 && await AuthStorage.getRefresh() != null) {
+      if (await renovarSesion() == ResultadoRenovacion.ok) {
+        res = await hacer(await _headers(auth: auth));
+      }
+    }
+    return res;
+  }
+
+  /// Día 72 — al abrir la app: ¿la sesión guardada sigue viva?
+  /// Solo devuelve [EstadoSesion.cerrada] cuando el servidor lo confirma;
+  /// sin red se deja entrar (la app funciona con lo que tiene en caché).
+  static Future<EstadoSesion> verificarSesion() async {
+    Future<http.Response> me() async => http
+        .get(Uri.parse('${ApiConfig.baseUrl}/auth/me'), headers: await _headers())
+        .timeout(ApiConfig.timeout);
+    try {
+      var res = await me();
+      if (res.statusCode == 401) {
+        if (await AuthStorage.getRefresh() == null) return EstadoSesion.cerrada;
+        final r = await renovarSesion();
+        if (r == ResultadoRenovacion.rechazada) return EstadoSesion.cerrada;
+        if (r == ResultadoRenovacion.sinConexion) return EstadoSesion.sinConexion;
+        res = await me();
+        if (res.statusCode == 401) return EstadoSesion.cerrada;
+      }
+      return EstadoSesion.valida;
+    } catch (_) {
+      return EstadoSesion.sinConexion;
+    }
   }
 
   // Día 46: headers públicos (con el Authorization ya resuelto) para usar en
@@ -214,35 +412,35 @@ class ApiClient {
   static Future<Map<String, String>> authHeaders() => _headers();
 
   static Future<dynamic> get(String path) async {
-    final res = await http
-        .get(Uri.parse('${ApiConfig.baseUrl}$path'), headers: await _headers())
-        .timeout(ApiConfig.timeout);
+    final res = await _enviar((h) => http
+        .get(Uri.parse('${ApiConfig.baseUrl}$path'), headers: h)
+        .timeout(ApiConfig.timeout));
     return _parse(res);
   }
 
   static Future<dynamic> post(String path, Map body,
       {bool auth = true, bool expulsarSi401 = true}) async {
-    final res = await http
+    final res = await _enviar((h) => http
         .post(Uri.parse('${ApiConfig.baseUrl}$path'),
-            headers: await _headers(auth: auth), body: jsonEncode(body))
-        .timeout(ApiConfig.timeout);
+            headers: h, body: jsonEncode(body))
+        .timeout(ApiConfig.timeout), auth: auth);
     return _parse(res, expulsarSi401: expulsarSi401);
   }
 
   static Future<dynamic> delete(String path) async {
-    final res = await http
-        .delete(Uri.parse('${ApiConfig.baseUrl}$path'), headers: await _headers())
-        .timeout(ApiConfig.timeout);
+    final res = await _enviar((h) => http
+        .delete(Uri.parse('${ApiConfig.baseUrl}$path'), headers: h)
+        .timeout(ApiConfig.timeout));
     return _parse(res);
   }
 
   /// Día 69 — faltaba PUT en el cliente: el código de emergencia se define
   /// con PUT porque reemplaza un valor existente, no crea uno nuevo.
   static Future<dynamic> put(String path, Map body) async {
-    final res = await http
+    final res = await _enviar((h) => http
         .put(Uri.parse('${ApiConfig.baseUrl}$path'),
-            headers: await _headers(), body: jsonEncode(body))
-        .timeout(ApiConfig.timeout);
+            headers: h, body: jsonEncode(body))
+        .timeout(ApiConfig.timeout));
     return _parse(res);
   }
 
@@ -258,7 +456,7 @@ class ApiClient {
     String campo = 'archivo',
     Map<String, String> fields = const {},
   }) async {
-    final token = await AuthStorage.getToken();
+    final token = await _tokenVigente();
     final req = http.MultipartRequest(
         'POST', Uri.parse('${ApiConfig.baseUrl}$path'));
     req.headers.addAll({
@@ -276,7 +474,7 @@ class ApiClient {
 
   static Future<dynamic> postMultipart(
       String path, File file, Map<String, String> fields) async {
-    final token = await AuthStorage.getToken();
+    final token = await _tokenVigente();
     final req = http.MultipartRequest(
         'POST', Uri.parse('${ApiConfig.baseUrl}$path'));
     req.headers.addAll({
@@ -295,7 +493,7 @@ class ApiClient {
   /// residente depositó en dos partes).
   static Future<dynamic> postMultipartVarios(
       String path, List<File> archivos, Map<String, String> fields) async {
-    final token = await AuthStorage.getToken();
+    final token = await _tokenVigente();
     final req = http.MultipartRequest(
         'POST', Uri.parse('${ApiConfig.baseUrl}$path'));
     req.headers.addAll({
@@ -320,7 +518,7 @@ class ApiClient {
     File? fotoPlaca,
     File? fotoNumero,
   }) async {
-    final authToken = await AuthStorage.getToken();
+    final authToken = await _tokenVigente();
     final req = http.MultipartRequest(
         'POST', Uri.parse('${ApiConfig.baseUrl}/visitas/accesos/visita'));
     req.headers.addAll({
@@ -390,9 +588,18 @@ class ApiClient {
     );
   }
 
-  static void _expulsarPorSesionInvalida() {
+  static Future<void> _expulsarPorSesionInvalida() async {
     if (_expulsando) return; // ya se está navegando al login, no repetir
     _expulsando = true;
+    // Día 72 — antes de sacar a la persona, se intenta renovar. Las
+    // peticiones comunes ya lo hicieron en _enviar; esto cubre las subidas
+    // de archivos, que no se pueden repetir solas. Si la renovación sale
+    // bien o no hay red, NO se cierra la sesión.
+    if (await AuthStorage.getRefresh() != null &&
+        await renovarSesion() != ResultadoRenovacion.rechazada) {
+      _expulsando = false;
+      return;
+    }
     // Día 65 — limpiar se hace ANTES de navegar y se espera que termine.
     // Antes era fire-and-forget, lo que causaba una condición de carrera:
     // si el usuario escribía sus credenciales antes de que limpiar()
@@ -410,7 +617,7 @@ class ApiClient {
             // naturalmente (inactividad, vencimiento del JWT), no
             // necesariamente porque alguien cerró la sesión desde otro
             // dispositivo.
-            mensajeInicial: 'Tu sesión venció. Iniciá sesión de nuevo.',
+            mensajeInicial: 'Tu sesión se cerró. Iniciá sesión de nuevo.',
           )),
           (_) => false,
         );
@@ -435,7 +642,8 @@ class AuthApi {
   static Future<Map<String, dynamic>> login(String email, String password) async {
     final res = await ApiClient.post(
       '/auth/login',
-      {'email': email, 'password': password},
+      // Día 72 — "recordar": pedir sesión permanente (estilo WhatsApp).
+      {'email': email, 'password': password, 'recordar': true},
       auth: false,
       // Día 64 — BUG REAL: un 401 por contraseña incorrecta disparaba la
       // expulsión automática ("sesión cerrada desde otro dispositivo") ANTES
@@ -662,6 +870,6 @@ class GuardiaAccesoApi {
 /// La foto del residente nunca es pública: se sirve autenticada. El token
 /// va por query porque un `Image.network` no puede mandar encabezados.
 Future<String> urlFotoResidente(String nombreArchivo) async {
-  final token = await AuthStorage.getToken();
+  final token = await ApiClient.tokenVigente();
   return '${ApiConfig.baseUrl}/unidades/residentes/foto/$nombreArchivo?_auth=$token';
 }
