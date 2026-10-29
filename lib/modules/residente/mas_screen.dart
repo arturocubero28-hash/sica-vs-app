@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../api/client.dart';
 import '../../api/bloqueo_biometrico.dart';
+import '../../api/credenciales_guardadas.dart';
 import '../../api/notificaciones.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/error_dialog.dart';
@@ -27,6 +28,10 @@ class _MasScreenState extends State<MasScreen> {
   bool _cargando = true;
   bool _biometriaDisponible = false;
   bool _bloqueoActivo = false;
+  // Día 72 — inicio de sesión rápido (credenciales guardadas), aparte del
+  // desbloqueo.
+  bool _rapidoActivo = false;
+  String? _rapidoEmail;
 
   @override
   void initState() { super.initState(); _cargar(); _cargarBiometria(); }
@@ -34,10 +39,27 @@ class _MasScreenState extends State<MasScreen> {
   Future<void> _cargarBiometria() async {
     final disp = await BloqueoBiometrico.disponible();
     final activo = await BloqueoBiometrico.estaActivo();
+    final rapido = await CredencialesGuardadas.estaActivo();
+    final rapidoEmail = rapido ? await CredencialesGuardadas.getEmail() : null;
     if (mounted) setState(() {
       _biometriaDisponible = disp;
       _bloqueoActivo = activo;
+      _rapidoActivo = rapido;
+      _rapidoEmail = rapidoEmail;
     });
+  }
+
+  /// Apagar borra la contraseña guardada en este teléfono. Prender no se
+  /// puede desde acá (haría falta la contraseña): se ofrece la próxima vez
+  /// que la persona inicie sesión escribiéndola.
+  Future<void> _toggleRapido(bool valor) async {
+    if (valor) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(
+          'Se activa la próxima vez que inicies sesión con tu contraseña.')));
+      return;
+    }
+    await CredencialesGuardadas.limpiar();
+    if (mounted) setState(() { _rapidoActivo = false; _rapidoEmail = null; });
   }
 
   Future<void> _toggleBloqueo(bool valor) async {
@@ -164,6 +186,34 @@ class _MasScreenState extends State<MasScreen> {
               value: _bloqueoActivo,
               activeColor: AppColors.naranja,
               onChanged: _toggleBloqueo,
+            ),
+          ),
+
+        // Día 72 — inicio de sesión rápido: para volver a ENTRAR con la
+        // huella después de cerrar sesión.
+        if (_biometriaDisponible)
+          Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: SwitchListTile(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              secondary: Container(
+                width: 42, height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.azul2.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.login_rounded, color: AppColors.azul2, size: 22),
+              ),
+              title: Text('Inicio de sesión rápido',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.azul)),
+              subtitle: Text(
+                  _rapidoActivo
+                      ? 'Si cerrás sesión, entrás con tu huella (${_rapidoEmail ?? 'esta cuenta'})'
+                      : 'Entrar con tu huella después de cerrar sesión',
+                  style: const TextStyle(fontSize: 12, color: AppColors.gris)),
+              value: _rapidoActivo,
+              activeColor: AppColors.naranja,
+              onChanged: _toggleRapido,
             ),
           ),
 

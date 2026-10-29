@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api/client.dart';
 import '../api/bloqueo_biometrico.dart';
-import '../api/credenciales_guardadas.dart';
 import '../widgets/marca_residencial.dart';
 import '../theme/app_theme.dart';
 import '../modules/shared/role_router.dart';
@@ -71,10 +70,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   Future<void> _verificar() async {
     await Future.delayed(const Duration(milliseconds: 2200));
     if (!mounted) return;
-
-    // Teléfonos que tenían "iniciar sesión con huella": se borra la
-    // contraseña que quedó guardada (una sola vez).
-    await CredencialesGuardadas.borrarContrasenaGuardada();
 
     // Día 64 — el permiso de cámara NO se pide acá: dejaba la app pegada
     // en el inicio en algunos Samsung. Se pide en scanner_screen.

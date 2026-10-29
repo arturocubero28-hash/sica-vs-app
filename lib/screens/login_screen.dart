@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../api/client.dart';
 import '../api/bloqueo_biometrico.dart';
+import '../api/credenciales_guardadas.dart';
 import '../widgets/marca_residencial.dart';
 import '../theme/app_theme.dart';
 import '../modules/shared/role_router.dart';
@@ -23,16 +24,20 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passCtrl     = TextEditingController();
   bool _cargando      = false;
   bool _verPass       = false;
-  // Día 72 — ya no hay "iniciar sesión con huella" (guardaba la contraseña
-  // en el teléfono). Se inicia sesión UNA vez con contraseña y la huella
-  // queda solo para DESBLOQUEAR la app (ver bloqueo_biometrico.dart).
+  // Día 65 — login biométrico
   bool _biometricoDisponible = false;
+  bool _biometricoActivo     = false;
+  // Día 69 — a QUÉ cuenta pertenece la huella guardada. Antes no se guardaba
+  // esta referencia en ningún lado: el casillero de credenciales era único y
+  // anónimo, así que la app no sabía de quién eran y el botón de huella
+  // entraba siempre con la primera cuenta que se hubiera guardado.
+  String? _emailBiometrico;
 
 
   @override
   void initState() {
     super.initState();
-    _prepararFormulario();
+    _verificarBiometrico();
     // Día 63 — antes se guardaba en _error y se mostraba como texto chico
     // dentro del formulario, fácil de pasar por alto justo en el momento
     // en que más importa que la persona lo note (fue expulsada de su
@@ -99,34 +104,92 @@ class _LoginScreenState extends State<LoginScreen> {
     }).catchError((_) {});
   }
 
-  Future<void> _prepararFormulario() async {
+  Future<void> _verificarBiometrico() async {
     final disponible = await BloqueoBiometrico.disponible();
-    final email = await AuthStorage.getUltimoEmail();
+    final activo = await CredencialesGuardadas.estaActivo();
+    final email = activo ? await CredencialesGuardadas.getEmail() : null;
+    // Día 72 — si no hay inicio rápido, igual se sugiere el último correo.
+    final sugerido = email ?? await AuthStorage.getUltimoEmail();
     if (!mounted) return;
-    setState(() => _biometricoDisponible = disponible);
-    if (email != null && _emailCtrl.text.isEmpty) {
-      _emailCtrl.text = email;
+    setState(() {
+      _biometricoDisponible = disponible;
+      _biometricoActivo = activo;
+      _emailBiometrico = email;
+    });
+    if (sugerido != null && _emailCtrl.text.isEmpty) {
+      _emailCtrl.text = sugerido;
     }
   }
 
-  /// Día 72 — después de iniciar sesión se ofrece proteger la app con la
-  /// huella. Es solo un candado LOCAL: la contraseña no se guarda y la
-  /// sesión sigue abierta en el servidor con o sin esto.
+  /// Día 70 — marca si el login en curso lo disparó la huella. Sin esto no
+  /// hay forma de saber, en el manejo del error, si la contraseña que falló
+  /// la escribió la persona o salió del casillero guardado -- y solo en el
+  /// segundo caso corresponde borrar la credencial.
+  bool _veniaDeHuella = false;
+
+  Future<void> _loginBiometrico() async {
+    final ok = await BloqueoBiometrico.autenticar(
+        motivo: 'Usá tu huella para iniciar sesión');
+    if (!ok || !mounted) return;
+    final creds = await CredencialesGuardadas.getCredenciales();
+    if (creds == null) {
+      // Día 70 — si la contraseña guardada no está, lo guardado YA NO SIRVE
+      // para nada. Antes solo se apagaba la opción en pantalla y el correo
+      // seguía guardado, así que al volver al login el botón "Entrar con
+      // huella" reaparecía y fallaba otra vez. Se borra de verdad.
+      await CredencialesGuardadas.limpiar();
+      if (!mounted) return;
+      ErrorDialog.mostrar(context,
+          'El acceso con huella se desconfiguró en este teléfono. '
+          'Entrá con tu contraseña y volvé a activarlo.');
+      setState(() {
+        _biometricoActivo = false;
+        _emailBiometrico = null;
+      });
+      return;
+    }
+    _emailCtrl.text = creds.email;
+    _passCtrl.text  = creds.password;
+    _veniaDeHuella = true;
+    try {
+      await _login();
+    } finally {
+      _veniaDeHuella = false;
+    }
+  }
+
+  /// Día 72 — al iniciar sesión se ofrecen las DOS funciones de huella,
+  /// cada una con su propio interruptor porque sirven para cosas distintas:
   ///
-  /// No se ofrece al guardia: su sesión vence con el turno y el teléfono
-  /// de la caseta suele ser compartido.
-  Future<void> _ofrecerDesbloqueoConHuella(String rol) async {
-    if (!_biometricoDisponible || rol == 'guardia') return;
-    if (await BloqueoBiometrico.estaActivo()) return;
+  ///   · Inicio de sesión rápido: se ofrece cuando ESTA cuenta no tiene sus
+  ///     credenciales guardadas en el teléfono. Sirve para volver a entrar
+  ///     con la huella después de cerrar sesión.
+  ///   · Desbloqueo con huella: se ofrece si todavía no está activo. Es para
+  ///     cuando la sesión sigue abierta y la persona vuelve a la app. No se
+  ///     ofrece al guardia (su sesión vence con el turno).
+  ///
+  /// Día 69 — regla que se mantiene: hay UN casillero de inicio rápido por
+  /// teléfono y gana la ÚLTIMA cuenta que lo guarda. Si ya había otra, se
+  /// avisa cuál se reemplaza; nunca se pisa en silencio.
+  Future<void> _ofrecerHuella(String email, String password, String rol) async {
+    if (!_biometricoDisponible) return;
+    final ofrecerRapido = !await CredencialesGuardadas.esDe(email);
+    final ofrecerDesbloqueo =
+        rol != 'guardia' && !await BloqueoBiometrico.estaActivo();
+    if (!ofrecerRapido && !ofrecerDesbloqueo) return;
+    final otraCuenta = ofrecerRapido ? await CredencialesGuardadas.getEmail() : null;
+
+    bool rapido = ofrecerRapido;
+    bool desbloqueo = ofrecerDesbloqueo;
     await Future.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
     final aceptado = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => Dialog(
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setD) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Container(
               width: 56, height: 56,
@@ -136,18 +199,45 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               child: Icon(Icons.fingerprint, color: AppColors.naranja, size: 30),
             ),
-            const SizedBox(height: 16),
-            Text('¿Proteger la app con tu huella?',
+            const SizedBox(height: 14),
+            Text('¿Usar tu huella en este teléfono?',
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.azul),
               textAlign: TextAlign.center),
-            const SizedBox(height: 10),
-            const Text(
-              'Tu sesión va a quedar abierta en este teléfono hasta que la cierres. '
-              'Si activás esto, cada vez que abras la app te vamos a pedir tu huella '
-              'para desbloquearla. Lo podés cambiar después en Más.',
-              style: TextStyle(fontSize: 13.5, color: AppColors.gris, height: 1.4),
+            const SizedBox(height: 4),
+            const Text('Tu sesión queda abierta hasta que la cierres.',
+              style: TextStyle(fontSize: 13, color: AppColors.gris),
               textAlign: TextAlign.center),
-            const SizedBox(height: 22),
+            const SizedBox(height: 12),
+            if (ofrecerRapido)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: rapido,
+                activeColor: AppColors.naranja,
+                onChanged: (v) => setD(() => rapido = v),
+                title: const Text('Inicio de sesión rápido',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+                subtitle: Text(
+                  (otraCuenta != null && otraCuenta.isNotEmpty)
+                      ? 'Si cerrás sesión, entrás de nuevo solo con tu huella. '
+                        'Reemplaza al de $otraCuenta en este teléfono.'
+                      : 'Si cerrás sesión, entrás de nuevo solo con tu huella, '
+                        'sin escribir la contraseña.',
+                  style: const TextStyle(fontSize: 12.5, color: AppColors.gris, height: 1.3)),
+              ),
+            if (ofrecerDesbloqueo)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: desbloqueo,
+                activeColor: AppColors.naranja,
+                onChanged: (v) => setD(() => desbloqueo = v),
+                title: const Text('Desbloqueo con huella',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+                subtitle: const Text(
+                  'Mientras tu sesión esté abierta, te pedimos la huella cada vez '
+                  'que volvés a la app.',
+                  style: TextStyle(fontSize: 12.5, color: AppColors.gris, height: 1.3)),
+              ),
+            const SizedBox(height: 12),
             SizedBox(width: double.infinity,
               child: ElevatedButton(
                 onPressed: () => Navigator.of(ctx).pop(true),
@@ -157,23 +247,41 @@ class _LoginScreenState extends State<LoginScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),
-                child: const Text('Activar',
+                child: const Text('Guardar',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
               child: Text('Ahora no', style: TextStyle(color: AppColors.gris.withOpacity(0.7))),
             ),
           ]),
         ),
-      ),
+      )),
     );
-    if (aceptado == true) {
-      // activar(true) pide la huella una vez para confirmar que funciona.
-      await BloqueoBiometrico.activar(true);
+    if (aceptado != true || (!rapido && !desbloqueo)) return;
+
+    // Se confirma la huella UNA vez, valga para lo que se haya elegido.
+    final ok = await BloqueoBiometrico.autenticar(motivo: 'Confirmá tu huella');
+    if (!ok) {
+      if (mounted) {
+        ErrorDialog.mostrar(context,
+            'No se activó la huella. Podés hacerlo después desde Más.');
+      }
+      return;
     }
+    if (rapido) {
+      // activar() escribe sobre el mismo casillero: gana la última cuenta.
+      await CredencialesGuardadas.activar(email, password);
+      if (mounted) {
+        setState(() {
+          _biometricoActivo = true;
+          _emailBiometrico = email;
+        });
+      }
+    }
+    if (desbloqueo) await BloqueoBiometrico.fijar(true);
   }
 
   Future<void> _login() async {
@@ -209,15 +317,54 @@ class _LoginScreenState extends State<LoginScreen> {
       _intentosFallidos = 0; // reset on success
 
       if (!mounted) return;
-      // Dia 66 — el diálogo va ANTES de navegar: RoleRouter.navegar()
-      // destruye el context del login y un showDialog() posterior fallaba
-      // en silencio.
-      await _ofrecerDesbloqueoConHuella(rol);
+      // Dia 66 — ofrecer la huella ANTES de navegar.
+      // RoleRouter.navegar() usa pushReplacement, destruyendo el context
+      // del login. Si el diálogo se abría después, showDialog() fallaba
+      // en silencio y no se guardaba nada.
+      final emailUsado = _emailCtrl.text.trim().toLowerCase();
+      final passUsada  = _passCtrl.text;
+      // Si entró CON la huella, ya está todo guardado: no se pregunta nada.
+      if (!_veniaDeHuella) await _ofrecerHuella(emailUsado, passUsada, rol);
       if (!mounted) return;
       AuthStorage.desbloqueada = true;
       RoleRouter.navegar(context, rol);
     } on ApiException catch (e) {
+      // Día 70 — si el intento venía de la huella y el servidor rechazó la
+      // contraseña, la credencial guardada quedó vieja (la cambiaron desde
+      // la web, por ejemplo). Se borra ACÁ MISMO.
+      //
+      // Antes no se borraba, y el costo no era solo una molestia: el
+      // servidor permite 5 intentos cada 15 minutos POR IP. Cada toque al
+      // botón de la huella gastaba uno de esos cinco sin que la persona lo
+      // supiera, y en cuatro toques quedaba sin poder entrar ni con la
+      // contraseña correcta. Un residente podía dejarse afuera de su propia
+      // cuenta sin escribir una sola letra mal.
+      // Día 70 — SOLO se borra la credencial guardada cuando el servidor
+      // dice que la contraseña está mal. Nada más.
+      //
+      // La primera versión de este arreglo borraba ante CUALQUIER error, y
+      // eso convertía el bloqueo por intentos en una pérdida de datos: al
+      // repetir la prueba se superaban los 5 intentos por IP, el servidor
+      // respondía 'demasiados_intentos', y la app interpretaba eso como
+      // "la contraseña guardada no sirve" y la borraba. El usuario perdía
+      // su acceso con huella por un límite que no tiene nada que ver con
+      // si su contraseña es correcta.
+      //
+      // Un 429 (muchos intentos), un 500 o un corte de red no dicen
+      // absolutamente nada sobre la credencial. Solo
+      // 'credenciales_invalidas' lo dice.
+      final credencialRechazada = e.code == 'credenciales_invalidas';
       final bloqueoDelServidor  = e.code == 'demasiados_intentos';
+
+      if (_veniaDeHuella && credencialRechazada) {
+        await CredencialesGuardadas.limpiar();
+        if (mounted) {
+          setState(() {
+            _biometricoActivo = false;
+            _emailBiometrico = null;
+          });
+        }
+      }
       if (!mounted) return;
 
       if (bloqueoDelServidor) {
@@ -231,6 +378,14 @@ class _LoginScreenState extends State<LoginScreen> {
       if (_intentosFallidos >= _maxIntentos) {
         _bloqueadoHasta = DateTime.now().add(const Duration(minutes: _minutosBloqueo));
         ErrorDialog.mostrar(context, 'Demasiados intentos fallidos. Bloqueado por $_minutosBloqueo minutos.');
+      } else if (_veniaDeHuella && credencialRechazada) {
+        ErrorDialog.mostrar(context,
+            'La contraseña guardada para la huella ya no es válida. '
+            'Entrá con tu contraseña y volvé a activar la huella.');
+      } else if (_veniaDeHuella) {
+        // Falló por otra cosa (red, servidor). La huella sigue guardada.
+        ErrorDialog.mostrar(context,
+            'No se pudo entrar con la huella: ${e.message}');
       } else {
         final restantes = _maxIntentos - _intentosFallidos;
         ErrorDialog.mostrar(context, '${e.message} ($restantes intentos restantes)');
@@ -359,6 +514,33 @@ class _LoginScreenState extends State<LoginScreen> {
                             : Text(_estaBloqueado ? 'Bloqueado ($_tiempoRestante)' : 'Entrar'),
                       ),
 
+                      // Dia 65 — boton de huella si hay credenciales guardadas
+                      if (_biometricoActivo) ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _cargando ? null : _loginBiometrico,
+                          icon: const Icon(Icons.fingerprint),
+                          // Dia 69 — el boton dice de QUIEN es la huella
+                          // guardada. Antes decia solo "Entrar con huella" y
+                          // entraba con una cuenta que podia no ser la que el
+                          // usuario tenia escrita en el formulario.
+                          label: Text(
+                            _emailBiometrico == null
+                                ? 'Entrar con huella'
+                                : 'Entrar con huella · $_emailBiometrico',
+                            textAlign: TextAlign.center,
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            // Día 66 — era blanco sobre la tarjeta blanca del
+                            // formulario: el botón se renderizaba pero era
+                            // completamente invisible.
+                            foregroundColor: AppColors.azulDeFabrica,
+                            side: const BorderSide(color: AppColors.naranjaDeFabrica, width: 1.5),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

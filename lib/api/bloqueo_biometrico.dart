@@ -11,10 +11,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Día 72 — quedan DOS cosas bien separadas:
 ///   · Iniciar sesión = correo + contraseña, una sola vez. La sesión queda
 ///     abierta en el servidor hasta que la persona la cierre.
-///   · Desbloquear = esta clase. Es local, en el teléfono: la huella nunca
-///     viaja al servidor ni reemplaza a la contraseña. Ya no existe el
-///     "iniciar sesión con huella", que obligaba a guardar la contraseña
-///     en el teléfono.
+///   · Desbloquear = esta clase. Es local, en el teléfono, para cuando la
+///     sesión sigue abierta y la persona vuelve a la app.
+///   · Inicio de sesión rápido con huella = credenciales_guardadas.dart.
+///     Opcional, para volver a entrar después de CERRAR sesión.
 ///
 /// Es OPCIONAL: se ofrece al iniciar sesión y se cambia desde Más.
 class BloqueoBiometrico {
@@ -53,6 +53,13 @@ class BloqueoBiometrico {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefKey, valor);
     return true;
+  }
+
+  /// Guarda la preferencia sin volver a pedir la huella (para cuando ya se
+  /// pidió justo antes, p. ej. en el diálogo que aparece al iniciar sesión).
+  static Future<void> fijar(bool valor) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefKey, valor);
   }
 
   /// Pide la autenticación biométrica. Devuelve true si fue exitosa.
