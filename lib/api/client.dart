@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import 'config.dart';
-import 'models.dart';
 import '../main.dart' show navigatorKey;
 import '../theme/app_theme.dart';
 import '../screens/login_screen.dart';

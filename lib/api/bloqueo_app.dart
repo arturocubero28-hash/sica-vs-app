@@ -31,8 +31,8 @@ class GuardianBloqueo with WidgetsBindingObserver {
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState estado) {
-    switch (estado) {
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
         // El diálogo de huella puede mandar la app a segundo plano un
