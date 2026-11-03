@@ -23,6 +23,11 @@ class _SeleccionarPuntoScreenState extends State<SeleccionarPuntoScreen> {
   bool _cargando = true;
   bool _guardando = false;
   String? _error;
+  // Día 72 — error al CARGAR la lista (distinto de _error, que es al
+  // guardar). Antes un fallo de carga dejaba la lista vacía y la pantalla
+  // decía "No hay puntos de acceso configurados", que es falso: había
+  // puntos, lo que falló fue la consulta.
+  String? _errorCarga;
   String? _puntoElegido;
 
   @override
@@ -32,17 +37,30 @@ class _SeleccionarPuntoScreenState extends State<SeleccionarPuntoScreen> {
   }
 
   Future<void> _cargarPuntos() async {
-    setState(() { _cargando = true; _error = null; });
-    try {
-      final res = await ApiClient.get('/acceso/puntos');
-      final lista = res as List<dynamic>;
+    setState(() { _cargando = true; _errorCarga = null; });
+    // Un reintento automático: justo después de iniciar sesión la primera
+    // consulta a veces falla (conexión recién abierta) y la segunda pasa.
+    for (var intento = 1; intento <= 2; intento++) {
+      try {
+        final res = await ApiClient.get('/acceso/puntos');
+        final lista = res as List<dynamic>;
+        if (!mounted) return;
+        setState(() { _puntos = lista; _cargando = false; });
+        return;
+      } on ApiException catch (e) {
+        if (intento == 2 && mounted) {
+          setState(() => _errorCarga = e.message);
+        }
+      } catch (e) {
+        if (intento == 2 && mounted) {
+          setState(() => _errorCarga =
+              'No se pudo conectar con el servidor. (${e.runtimeType})');
+        }
+      }
+      if (intento == 1) await Future.delayed(const Duration(milliseconds: 1500));
       if (!mounted) return;
-      setState(() => _puntos = lista);
-    } catch (_) {
-      if (mounted) setState(() => _error = 'No se pudieron cargar los puntos de acceso');
-    } finally {
-      if (mounted) setState(() => _cargando = false);
     }
+    if (mounted) setState(() => _cargando = false);
   }
 
   Future<void> _confirmar() async {
@@ -109,6 +127,25 @@ class _SeleccionarPuntoScreenState extends State<SeleccionarPuntoScreen> {
                   ),
                   child: _cargando
                       ? const Center(child: CircularProgressIndicator())
+                      : _errorCarga != null
+                          ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                              const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.gris),
+                              const SizedBox(height: 12),
+                              const Text('No se pudieron cargar los puntos de acceso.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: AppColors.azulDeFabrica,
+                                      fontSize: 14, fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 6),
+                              Text(_errorCarga!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: AppColors.gris, fontSize: 12.5)),
+                              const SizedBox(height: 16),
+                              OutlinedButton.icon(
+                                onPressed: _cargarPuntos,
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Reintentar'),
+                              ),
+                            ]))
                       : _puntos.isEmpty
                           ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                               const Icon(Icons.location_off_outlined, size: 48, color: AppColors.gris),
