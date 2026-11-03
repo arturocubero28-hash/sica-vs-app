@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../api/client.dart';
 import '../../api/bloqueo_biometrico.dart';
 import '../../api/credenciales_guardadas.dart';
+import '../../widgets/visor_foto.dart';
 import '../../api/notificaciones.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/error_dialog.dart';
@@ -305,6 +306,8 @@ class _OpcionTile extends StatelessWidget {
 
 /// Día 69 — foto del residente en su perfil, con la casa como respaldo.
 ///
+/// Al tocarla se abre en grande (VisorFoto, Día 72).
+///
 /// Solo lectura: no hay forma de cambiarla desde la app. La captura
 /// administración, porque es la que el guardia compara contra la
 /// identificación cuando alguien pide entrar sin teléfono.
@@ -331,14 +334,22 @@ class _FotoOCasa extends StatelessWidget {
         width: 48, height: 48,
         child: FutureBuilder<String>(
           future: urlFotoResidente(fotoUrl!),
-          builder: (_, snap) {
+          builder: (context, snap) {
             if (!snap.hasData) return placeholder;
-            return Image.network(
-              snap.data!,
-              fit: BoxFit.cover,
-              // Si la foto no carga (sin señal, enlace vencido), se muestra
-              // la casa en vez de un ícono roto.
-              errorBuilder: (_, __, ___) => placeholder,
+            // Día 72 — al tocarla se ve en grande (con zoom).
+            return GestureDetector(
+              onTap: () => VisorFoto.abrir(context,
+                  url: snap.data!, heroTag: 'foto-perfil', titulo: 'Mi foto'),
+              child: Hero(
+                tag: 'foto-perfil',
+                child: Image.network(
+                  snap.data!,
+                  fit: BoxFit.cover,
+                  // Si la foto no carga (sin señal, enlace vencido), se
+                  // muestra la casa en vez de un ícono roto.
+                  errorBuilder: (_, __, ___) => placeholder,
+                ),
+              ),
             );
           },
         ),
