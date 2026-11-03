@@ -5,6 +5,7 @@
 //   flutter run                          → dev  (túnel ngrok, teléfono físico)
 //   flutter run --dart-define=ENV=emu    → emulador de Android
 //   flutter build apk --dart-define=ENV=prod → producción
+//   flutter build apk (release, sin ENV)     → producción también (Día 72)
 //
 // NOTA IMPORTANTE (Día 41): el default era 10.0.2.2, que es una dirección
 // especial que SOLO existe dentro del emulador de Android — es su alias para
@@ -13,7 +14,14 @@
 // funciona en ambos casos, y el emulador queda detrás de --dart-define=ENV=emu
 // para quien lo necesite.
 class ApiConfig {
-  static const String _env = String.fromEnvironment('ENV', defaultValue: 'dev');
+  // Día 72 — una compilación RELEASE apunta a producción aunque se olvide
+  // --dart-define=ENV=prod. Antes el default era 'dev' siempre, y un APK
+  // release compilado sin ese parámetro intentaba conectarse al túnel ngrok
+  // (apagado): "error de conexión" al iniciar sesión. 'dart.vm.product' es
+  // true solo en release; flutter run (debug) sigue yendo al túnel.
+  static const bool _esRelease = bool.fromEnvironment('dart.vm.product');
+  static const String _env = String.fromEnvironment('ENV',
+      defaultValue: _esRelease ? 'prod' : 'dev');
   static const bool _esProd = _env == 'prod';
   static const bool _esEmulador = _env == 'emu';
 
