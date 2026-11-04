@@ -986,13 +986,24 @@ class _CodigoDeliveryPanelState extends State<_CodigoDeliveryPanel> {
 
   void _compartir() {
     final codigo = widget.visita['codigo_numerico']?.toString() ?? '';
-    final nombre = widget.visita['nombre_visitante']?.toString() ?? 'tu repartidor';
-    final empresa = widget.visita['empresa']?.toString();
-    final empresaTxt = (empresa != null && empresa.isNotEmpty) ? ' de $empresa' : '';
+    final nombre = (widget.visita['nombre_visitante']?.toString() ?? '').trim();
+    final empresa = (widget.visita['empresa']?.toString() ?? '').trim();
+
+    // Día 73 — BUG reportado: el mensaje salía "Hola de Uber, tu código...".
+    // El nombre se leía acá arriba pero solo se usaba en el asunto del
+    // correo; en el cuerpo nunca se puso, y quedaba el saludo pegado al
+    // "de <empresa>".
+    //
+    // El nombre es obligatorio al crear el código (_crear lo exige), así
+    // que en la práctica siempre hay uno; igual se contempla vacío, porque
+    // si lo fuera el saludo volvería a quedar "Hola de Uber".
+    final empresaTxt = empresa.isEmpty ? '' : ' de $empresa';
+    final saludo = nombre.isEmpty ? 'Hola' : 'Hola $nombre$empresaTxt';
+
     Share.share(
-      'Hola$empresaTxt, tu código de acceso a ${ResidencialCache.nombre} es: $codigo\n'
+      '$saludo, tu código de acceso a ${ResidencialCache.nombre} es: $codigo\n'
       'Dáselo al guardia en la entrada. Válido por 6 horas.',
-      subject: 'Código de acceso — $nombre',
+      subject: 'Código de acceso — ${nombre.isEmpty ? 'repartidor' : nombre}',
     );
   }
 
