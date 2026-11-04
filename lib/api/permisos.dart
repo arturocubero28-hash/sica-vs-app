@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 
 /// Día 69 — resultado detallado de pedir un permiso.
@@ -48,15 +49,19 @@ class PermisosService {
     return ResultadoPermiso.negado;
   }
 
-  /// Pide permiso de galería/fotos. En Android 13+ es Permission.photos,
-  /// en versiones anteriores es storage. permission_handler lo resuelve solo.
+  /// Día 72 — en Android ya no se pide permiso de galería.
+  ///
+  /// La app usa el selector de fotos del sistema (ver lib/main.dart), que
+  /// devuelve únicamente la imagen que la persona eligió. No hace falta
+  /// permiso, y de hecho el manifiesto ya no declara READ_MEDIA_IMAGES: si
+  /// se siguiera pidiendo acá, Android lo negaría siempre y el residente no
+  /// podría subir su comprobante desde la galería.
+  ///
+  /// En iPhone sí se pide, porque elegir de la fototeca requiere permiso.
   static Future<bool> pedirGaleria() async {
-    // En Android 13+ el permiso es 'photos'; en anteriores 'storage'.
+    if (Platform.isAndroid) return true;
     final foto = await Permission.photos.request();
-    if (foto.isGranted || foto.isLimited) return true;
-    // Fallback para Android < 13
-    final storage = await Permission.storage.request();
-    return storage.isGranted;
+    return foto.isGranted || foto.isLimited;
   }
 
   /// Verifica si la cámara ya tiene permiso sin volver a pedirlo.

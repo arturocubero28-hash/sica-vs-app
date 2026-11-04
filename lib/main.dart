@@ -9,14 +9,35 @@ import 'dart:io';
 import 'api/firebase_ios.dart';
 import 'api/notificaciones.dart';
 import 'api/bloqueo_app.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 
 /// Día 58 (A-2) — clave global de navegación. Permite navegar a una pantalla
 /// (ej. el login) desde fuera del árbol de widgets, como client.dart, que no
 /// tiene BuildContext propio. Es el patrón estándar de Flutter para esto.
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+/// Día 72 — usar el selector de fotos del sistema en Android.
+///
+/// Sin esto, elegir una imagen abre el selector viejo, que exige el permiso
+/// READ_MEDIA_IMAGES: acceso a TODA la galería. Google Play solo permite ese
+/// permiso cuando revisar fotos es la función central de la app, y acá lo
+/// único que se elige es la foto de un comprobante de pago.
+///
+/// El selector del sistema devuelve solo la imagen que la persona eligió, sin
+/// permiso y sin ver el resto de sus fotos. En Android 12 y anteriores,
+/// Google Play Services trae una versión equivalente; si no estuviera
+/// disponible, image_picker cae solo al selector de antes.
+void _usarSelectorDeFotosDeAndroid() {
+  final picker = ImagePickerPlatform.instance;
+  if (picker is ImagePickerAndroid) {
+    picker.useAndroidPhotoPicker = true;
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _usarSelectorDeFotosDeAndroid();
 
   // Día 56 — datos de locale para fechas en español (nombres de mes/día).
   // Necesario para DateFormat con locale 'es' (ej. el reloj del encabezado);

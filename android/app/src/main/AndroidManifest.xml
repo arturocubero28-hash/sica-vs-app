@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Permisos necesarios para la app de Residencial Villas del Sol -->
     <uses-permission android:name="android.permission.INTERNET"/>
@@ -8,7 +9,17 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <!-- Día 72 — READ_MEDIA_IMAGES se ELIMINA a propósito.
+         Pedirlo obliga a declararle a Google Play que el acceso amplio a la
+         galería es la función central de la app, y no lo es: lo único que
+         hace el residente es elegir la foto de un comprobante de pago. Para
+         eso Android tiene el selector de fotos del sistema, que devuelve la
+         imagen elegida sin dar acceso a toda la galería y sin permiso.
+         El `tools:node="remove"` hace falta porque los plugins lo inyectan
+         en el manifiesto final aunque nosotros no lo declaremos.
+         Ver lib/main.dart, donde se activa el selector. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"
+        tools:node="remove"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
