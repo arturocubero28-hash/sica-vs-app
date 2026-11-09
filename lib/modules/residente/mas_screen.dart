@@ -10,6 +10,7 @@ import '../../widgets/error_dialog.dart';
 import '../../screens/login_screen.dart';
 import 'mi_edificio_screen.dart';
 import 'codigo_emergencia_screen.dart';
+import 'ayuda_screen.dart';
 import '../shared/cambiar_password_screen.dart';
 
 final _fmtL = NumberFormat.currency(locale: 'es_HN', symbol: 'L ');
@@ -218,6 +219,17 @@ class _MasScreenState extends State<MasScreen> {
             ),
           ),
 
+        // Día 76 — teléfono y correo de la administración para dudas,
+        // quejas y sugerencias (los configura el admin en el panel web).
+        _OpcionTile(
+          icono: Icons.support_agent_rounded,
+          color: AppColors.naranja,
+          titulo: 'Ayuda',
+          subtitulo: 'Dudas, quejas o sugerencias: llamá o escribí a la administración',
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => AyudaScreen(casa: unidad))),
+        ),
+
         _OpcionTile(
           icono: Icons.language,
           color: AppColors.naranja,
@@ -262,7 +274,7 @@ class _MasScreenState extends State<MasScreen> {
         ),
 
         const SizedBox(height: 32),
-        const Center(child: Text('Residencial Villas del Sol App · v1.0.0',
+        const Center(child: Text('Residencial Villas del Sol App · v1.0.1',
             style: TextStyle(color: AppColors.gris, fontSize: 12))),
       ],
     );

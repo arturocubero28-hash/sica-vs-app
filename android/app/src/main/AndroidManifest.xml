@@ -61,5 +61,16 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="https"/>
         </intent>
+        <!-- Día 76 — sección Ayuda: llamar y escribir a la administración.
+             Sin esto, en Android 11+ la app no "ve" el marcador ni la app
+             de correo y launchUrl devuelve false. -->
+        <intent>
+            <action android:name="android.intent.action.DIAL"/>
+            <data android:scheme="tel"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO"/>
+            <data android:scheme="mailto"/>
+        </intent>
     </queries>
 </manifest>

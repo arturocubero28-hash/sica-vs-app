@@ -9,6 +9,7 @@ import '../../api/camara_helper.dart';
 import '../../api/recuperacion_comprobante.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/error_dialog.dart';
+import '../../widgets/cuentas_para_pagar.dart';
 
 final _fmt = NumberFormat.currency(locale: 'es_HN', symbol: 'L ');
 final _fmtFecha = DateFormat('dd/MM/yyyy');
@@ -184,6 +185,12 @@ class _CuotasScreenState extends State<CuotasScreen> {
           if (cuotas.isEmpty && arreglo == null)
             const _AlDia(),
 
+          // Día 76 — a dónde transferir (lo configura la administración).
+          if (cuotas.isNotEmpty || arreglo != null) ...[
+            const SizedBox(height: 6),
+            const CuentasParaPagar(),
+          ],
+
           const SizedBox(height: 80),
         ],
       ),
@@ -215,7 +222,11 @@ class _CuotaCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final estado = cuota['estado'] as String;
     final monto  = (cuota['monto'] as num).toDouble();
-    final periodo = cuota['periodo'] as String;
+    // Día 76 — si ya abonó una parte (en caja, por ejemplo), lo que se
+    // muestra y se paga es lo que falta, no la cuota entera.
+    final saldo  = (cuota['saldo'] as num?)?.toDouble() ?? monto;
+    final pagado = (cuota['pagado'] as num?)?.toDouble() ?? 0;
+    final periodo = (cuota['mes_label'] ?? cuota['periodo']).toString();
     final vencimiento = DateTime.tryParse(cuota['fecha_vencimiento'] ?? '');
     final enRevision = estado == 'en_revision';
 
@@ -241,7 +252,7 @@ class _CuotaCard extends StatelessWidget {
                     style: const TextStyle(fontSize: 12, color: AppColors.gris)),
             ])),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(_fmt.format(monto),
+              Text(_fmt.format(saldo),
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: AppColors.azul)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -254,6 +265,19 @@ class _CuotaCard extends StatelessWidget {
               ),
             ]),
           ]),
+
+          if (pagado > 0) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.amber.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('Falta pagar ${_fmt.format(saldo)} · ya abonaste ${_fmt.format(pagado)} de ${_fmt.format(monto)}',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF7C4400))),
+            ),
+          ],
 
           if (cuota['nota_admin'] != null) ...[
             const SizedBox(height: 8),
@@ -297,7 +321,7 @@ class _CuotaCard extends StatelessWidget {
                 icon: const Icon(Icons.upload_outlined, size: 18),
                 label: const Text('Subir comprobante'),
                 onPressed: !esLaMasAntigua ? null : () => _abrirSubidaComprobante(
-                    context, cuota['uuid_publico'] ?? cuota['id'].toString(), monto),
+                    context, cuota['uuid_publico'] ?? cuota['id'].toString(), saldo),
               ),
             ),
           ] else ...[
@@ -792,10 +816,15 @@ class _PantallaMultiplesComprobantesState extends State<_PantallaMultiplesCompro
               // depósitos, pero un solo pago por el total.
               'Si depositaste desde más de un banco, agregá el comprobante de '
               'cada uno. La suma debe cubrir los L ${widget.monto.toStringAsFixed(2)} '
-              'de la cuota — si falta, la administración lo rechaza y te avisa por qué.',
+              'que faltan de la cuota — si no alcanza, la administración lo rechaza y te avisa por qué.',
               style: const TextStyle(fontSize: 12.5, color: AppColors.gris, height: 1.4),
             ),
           ),
+        ),
+        // Día 76 — las cuentas a las que transferir, a mano en el momento de pagar.
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: CuentasParaPagar(compacta: true),
         ),
         Expanded(
           child: _archivos.isEmpty

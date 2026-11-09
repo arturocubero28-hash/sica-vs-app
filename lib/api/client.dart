@@ -685,6 +685,13 @@ class ResidenteApi {
     return res as Map<String, dynamic>;
   }
 
+  /// Día 76 — cuentas bancarias a las que se puede pagar la cuota. Las
+  /// configura el admin en el panel web; lista vacía si no hay ninguna.
+  static Future<List<dynamic>> cuentasBancarias() async {
+    final res = await ApiClient.get('/unidades/mi-residencial/cuentas-bancarias');
+    return (res as List<dynamic>?) ?? [];
+  }
+
   static Future<List<dynamic>> misVisitas() async {
     final res = await ApiClient.get('/visitas/mias');
     return res as List<dynamic>;
