@@ -222,8 +222,10 @@ class _CuotaCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final estado = cuota['estado'] as String;
     final monto  = (cuota['monto'] as num).toDouble();
-    // Día 76 — si ya abonó una parte (en caja, por ejemplo), lo que se
-    // muestra y se paga es lo que falta, no la cuota entera.
+    // Día 76 — las cuotas se pagan completas. Solo hay un pago previo
+    // cuando la casa salió a mitad de mes, pagó esos días en caja y volvió
+    // el mismo mes (se le suman los días que quedan). Ahí se cobra lo que
+    // falta; en cualquier otro caso saldo = monto.
     final saldo  = (cuota['saldo'] as num?)?.toDouble() ?? monto;
     final pagado = (cuota['pagado'] as num?)?.toDouble() ?? 0;
     final periodo = (cuota['mes_label'] ?? cuota['periodo']).toString();
@@ -274,7 +276,7 @@ class _CuotaCard extends StatelessWidget {
                 color: AppColors.amber.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text('Falta pagar ${_fmt.format(saldo)} · ya abonaste ${_fmt.format(pagado)} de ${_fmt.format(monto)}',
+              child: Text('Ya pagaste ${_fmt.format(pagado)} de este mes; la cuota completa es ${_fmt.format(monto)}',
                   style: const TextStyle(fontSize: 12, color: Color(0xFF7C4400))),
             ),
           ],
