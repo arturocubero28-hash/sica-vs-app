@@ -58,7 +58,7 @@ class _AyudaScreenState extends State<AyudaScreen> {
         Container(
           width: 56, height: 56,
           decoration: BoxDecoration(
-            color: AppColors.naranja.withOpacity(0.14),
+            color: AppColors.naranja.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Icon(Icons.support_agent_rounded, color: AppColors.naranja, size: 30),
@@ -176,7 +176,7 @@ class _Canal extends StatelessWidget {
           Container(
             width: 44, height: 44,
             decoration: BoxDecoration(
-              color: AppColors.azul.withOpacity(0.08),
+              color: AppColors.azul.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icono, color: AppColors.azul, size: 22),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../api/client.dart';
 import '../../api/bloqueo_biometrico.dart';
 import '../../api/credenciales_guardadas.dart';
@@ -13,7 +12,6 @@ import 'codigo_emergencia_screen.dart';
 import 'ayuda_screen.dart';
 import '../shared/cambiar_password_screen.dart';
 
-final _fmtL = NumberFormat.currency(locale: 'es_HN', symbol: 'L ');
 
 /// Sección "Más" del residente: estado de cuenta, Mi Edificio (dueños),
 /// y cerrar sesión.
