@@ -7,6 +7,8 @@ import '../theme/app_theme.dart';
 import '../modules/shared/role_router.dart';
 import '../api/notificaciones.dart';
 import '../widgets/error_dialog.dart';
+import '../api/recuperacion_comprobante.dart';
+import '../api/recuperacion_guardia.dart';
 
 class LoginScreen extends StatefulWidget {
   // Día 58 (A-2) — mensaje que se muestra al entrar, usado cuando se llega
@@ -158,6 +160,85 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Día 76 — lo que quedó en este teléfono de una cuenta DISTINTA a la que
+  /// está entrando. null si no hay nada (o si es la misma cuenta).
+  ///
+  /// La sesión de la cuenta anterior ya se cerró al hacer logout; lo que
+  /// puede quedar es: su inicio rápido (correo y contraseña cifrada), el
+  /// desbloqueo con huella (es del teléfono, no de la cuenta: con otra
+  /// persona se le pediría la huella del dueño anterior) y las fotos de un
+  /// comprobante o de un registro de guardia sin terminar.
+  Future<_Rastros?> _rastrosDeOtraCuenta(String emailNuevo) async {
+    final rapidoDe = await CredencialesGuardadas.getEmail();
+    final anterior = rapidoDe ?? await AuthStorage.getUltimoEmail();
+    if (anterior == null || anterior.toLowerCase() == emailNuevo) return null;
+    final r = _Rastros(
+      cuenta: anterior,
+      inicioRapido: rapidoDe != null && rapidoDe.toLowerCase() != emailNuevo,
+      desbloqueo: await BloqueoBiometrico.estaActivo(),
+      pendientes: await RecuperacionComprobante.leerPendiente() != null ||
+          await RecuperacionGuardia.leerEstado() != null,
+    );
+    return r.hayAlgo ? r : null;
+  }
+
+  Future<bool> _confirmarCambioDeCuenta(_Rastros r) async {
+    final nuevo = _emailCtrl.text.trim().toLowerCase();
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: Icon(Icons.swap_horiz_rounded, color: AppColors.naranja, size: 34),
+        title: const Text('Vas a entrar con otra cuenta', textAlign: TextAlign.center),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('En este teléfono quedó guardado lo de ${r.cuenta}. Si entrás con $nuevo, '
+              'se borra de este teléfono:',
+              style: const TextStyle(fontSize: 14, height: 1.4)),
+          const SizedBox(height: 10),
+          if (r.inicioRapido)
+            _vineta('Su inicio de sesión rápido con huella (y la contraseña guardada).'),
+          if (r.desbloqueo)
+            _vineta('El desbloqueo con huella. Lo podés activar de nuevo para tu cuenta.'),
+          if (r.pendientes)
+            _vineta('Las fotos de un comprobante o registro que no se terminó de enviar.'),
+          const SizedBox(height: 10),
+          const Text('Lo que está en el sistema (cuotas, pagos, visitas) no se toca.',
+              style: TextStyle(fontSize: 12.5, color: AppColors.gris, height: 1.35)),
+        ]),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
+          ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Borrar y entrar')),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
+  Widget _vineta(String texto) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: const EdgeInsets.only(top: 6, right: 8),
+        child: Icon(Icons.circle, size: 6, color: AppColors.naranja),
+      ),
+      Expanded(child: Text(texto, style: const TextStyle(fontSize: 13.5, height: 1.35))),
+    ]),
+  );
+
+  Future<void> _borrarRastros(_Rastros r) async {
+    if (r.inicioRapido) await CredencialesGuardadas.limpiar();
+    if (r.desbloqueo) await BloqueoBiometrico.fijar(false);
+    if (r.pendientes) {
+      await RecuperacionComprobante.limpiar();
+      await RecuperacionGuardia.limpiar();
+    }
+    if (mounted && r.inicioRapido) {
+      setState(() { _biometricoActivo = false; _emailBiometrico = null; });
+    }
+  }
+
   /// Día 72 — al iniciar sesión se ofrecen las DOS funciones de huella,
   /// cada una con su propio interruptor porque sirven para cosas distintas:
   ///
@@ -293,6 +374,14 @@ class _LoginScreenState extends State<LoginScreen> {
       ErrorDialog.mostrar(context, 'Completá el correo y la contraseña');
       return;
     }
+    // Día 76 — si este teléfono tiene guardado algo de OTRA cuenta, se avisa
+    // qué se va a borrar y se pide confirmar ANTES de entrar.
+    final rastros = _veniaDeHuella
+        ? null
+        : await _rastrosDeOtraCuenta(_emailCtrl.text.trim().toLowerCase());
+    if (rastros != null) {
+      if (!await _confirmarCambioDeCuenta(rastros)) return;
+    }
     setState(() { _cargando = true; });
     try {
       final res = await AuthApi.login(
@@ -307,6 +396,9 @@ class _LoginScreenState extends State<LoginScreen> {
       // persona la cierre. El servidor no lo manda para el guardia.
       await AuthStorage.guardar(token, rol, user,
           refresh: res['refresh_token'] as String?);
+      // Recién con el login confirmado se borra lo de la cuenta anterior:
+      // si la contraseña era incorrecta, no se pierde nada.
+      if (rastros != null) await _borrarRastros(rastros);
       await AuthStorage.setUltimoEmail(_emailCtrl.text.trim().toLowerCase());
       // Día 63: marca que este arranque de GuardiaShell viene de un login
       // real (usuario/contraseña), no de una simple reapertura de la app.
@@ -666,3 +758,11 @@ class _RecuperarPasswordSheetState extends State<_RecuperarPasswordSheet> {
   }
 }
 
+/// Día 76 — lo que quedó en el teléfono de la cuenta anterior.
+class _Rastros {
+  final String cuenta;
+  final bool inicioRapido, desbloqueo, pendientes;
+  const _Rastros({required this.cuenta, required this.inicioRapido,
+      required this.desbloqueo, required this.pendientes});
+  bool get hayAlgo => inicioRapido || desbloqueo || pendientes;
+}
