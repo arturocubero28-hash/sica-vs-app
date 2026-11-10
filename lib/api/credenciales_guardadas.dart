@@ -35,6 +35,11 @@ class CredencialesGuardadas {
   // Arreglo: misma opción que AuthStorage, y ADEMÁS un archivo propio
   // (sharedPreferencesName) para que las dos no puedan pisarse nunca más,
   // aunque alguien cambie una de las dos configuraciones en el futuro.
+  //
+  // Día 76 — ese archivo propio destapó otra falla del plugin: recuerda el
+  // último nombre de archivo que se le pasó, y AuthStorage no pasaba
+  // ninguno, así que la sesión terminaba escrita acá. Ahora AuthStorage y
+  // BleService dicen su archivo explícitamente. Ver AuthStorage.
   static const _secure = FlutterSecureStorage(
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,

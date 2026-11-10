@@ -73,6 +73,15 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
     // Día 64 — el permiso de cámara NO se pide acá: dejaba la app pegada
     // en el inicio en algunos Samsung. Se pide en scanner_screen.
+    // Día 76 — si este teléfono tuvo la falla que mezclaba sesiones de dos
+    // cuentas, se limpia (una sola vez) y se pide entrar de nuevo.
+    if (await AuthStorage.repararAlmacenSiHaceFalta()) {
+      AppColors.restablecerFabrica();
+      if (!mounted) return;
+      await _irAlLogin(mensaje: 'Por seguridad, iniciá sesión de nuevo.');
+      return;
+    }
+
     final haySesion = await AuthStorage.tieneSesion();
     final rol = await AuthStorage.getRol();
     if (!mounted) return;

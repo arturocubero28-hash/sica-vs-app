@@ -15,8 +15,14 @@ import 'client.dart';
 ///   - La clave secreta se guarda en el Keystore (FlutterSecureStorage)
 ///   - El rolling counter se incrementa en cada uso
 class BleService {
+  // Día 76 — el archivo SIEMPRE explícito: el plugin recuerda el último
+  // que se le pasó (ver AuthStorage en client.dart).
   static const _secure = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true, resetOnError: true),
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+      sharedPreferencesName: 'FlutterSecureStorage',
+      resetOnError: true,
+    ),
   );
   static const _kToken = 'ble_token';
   static const _kClave = 'ble_clave';

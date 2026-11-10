@@ -99,9 +99,48 @@ class ResidencialCache {
 /// Los datos no sensibles (rol, info básica del usuario) siguen en
 /// SharedPreferences porque no contienen credenciales.
 class AuthStorage {
+  // Día 76 — FALLA GRAVE: una cuenta que ya había cerrado sesión volvía a
+  // aparecer. Caso real: se entró con la casa 2, se cerró sesión, se entró
+  // con la casa 13; al reabrir la app, el servidor recibía la sesión de la
+  // casa 2 y la pantalla mostraba el nombre de la casa 13 con los datos de
+  // la casa 2.
+  //
+  // Causa: el plugin de Android (flutter_secure_storage 9.x) tiene UNA sola
+  // instancia para toda la app y recuerda el último `sharedPreferencesName`
+  // que le pasaron: si una llamada no lo indica, NO vuelve al archivo por
+  // defecto, sigue en el último. credenciales_guardadas.dart usa su propio
+  // archivo (Día 70), así que, apenas se guardaba el inicio rápido con
+  // huella, la sesión empezaba a escribirse en ESE archivo. Al reabrir la
+  // app (proceso nuevo, nombre por defecto otra vez) se leía el archivo de
+  // siempre, con un token viejo que nadie había borrado: el de antes de
+  // cerrar sesión.
+  //
+  // Arreglo: TODAS las instancias dicen explícitamente su archivo. Esta usa
+  // el nombre por defecto del plugin, así los teléfonos que nunca tuvieron
+  // el problema no pierden la sesión al actualizar. Los que sí lo tuvieron
+  // se limpian una vez al arrancar (repararAlmacenSiHaceFalta).
   static const _secure = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true, resetOnError: true),
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+      sharedPreferencesName: archivoSesion,
+      resetOnError: true,
+    ),
   );
+  /// Nombre por defecto del plugin: es donde siempre se guardó la sesión.
+  static const archivoSesion = 'FlutterSecureStorage';
+  /// El archivo de credenciales_guardadas.dart, donde la falla dejaba
+  /// copias de la sesión. Solo se usa para limpiarlas.
+  static const _secureCredenciales = FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+      sharedPreferencesName: 'sica_credenciales_biometricas',
+      resetOnError: true,
+    ),
+  );
+  static const _flagReparado = 'almacen_sesion_reparado_v1';
+  // Credencial BLE (ble_service.dart): vive en el mismo archivo que la
+  // sesión y es de la cuenta, así que se borra al cerrar sesión.
+  static const _llavesBle = ['ble_token', 'ble_clave', 'ble_contador'];
   static const _tokenKey   = 'sica_token';
   static const _refreshKey = 'sica_refresh';
   static const _rolKey     = 'sica_rol';
@@ -202,9 +241,56 @@ class AuthStorage {
     desbloqueada = false;
     await _secure.delete(key: _tokenKey);
     await _secure.delete(key: _refreshKey);
+    // Día 76 — la llave BLE es de la cuenta: si queda, la próxima persona
+    // que entre en este teléfono abriría el portón como la anterior.
+    for (final k in _llavesBle) {
+      await _secure.delete(key: k);
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_rolKey);
     await prefs.remove(_userKey);
+  }
+
+  /// Día 76 — una sola vez por teléfono, al arrancar. Si la falla del
+  /// archivo de sesión (ver arriba) dejó copias de una sesión en el archivo
+  /// de credenciales, ya no se puede saber cuál es la buena: se cierran en
+  /// el servidor todas las que se encuentren, se borran las dos copias y se
+  /// pide iniciar sesión otra vez. Devuelve true si hubo que hacerlo.
+  ///
+  /// En un teléfono sin el problema no cambia nada (ni cierra la sesión).
+  static Future<bool> repararAlmacenSiHaceFalta() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_flagReparado) == true) return false;
+
+    final tokenCopia = await leerSeguro(_secureCredenciales, _tokenKey);
+    final refreshCopia = await leerSeguro(_secureCredenciales, _refreshKey);
+    final afectado = tokenCopia != null || refreshCopia != null;
+    if (afectado) {
+      final refreshActual = await getRefresh();
+      final refreshes = <String>{
+        if (refreshCopia != null) refreshCopia,
+        if (refreshActual != null) refreshActual,
+      };
+      for (final r in refreshes) {
+        try {
+          await http
+              .post(Uri.parse('${ApiConfig.baseUrl}/auth/logout'),
+                  headers: Map<String, String>.from(ApiConfig.headers),
+                  body: jsonEncode({'refresh_token': r}))
+              .timeout(ApiConfig.timeout);
+        } catch (_) {
+          // Sin red: se limpia igual en el teléfono.
+        }
+      }
+      for (final k in [_tokenKey, _refreshKey, ..._llavesBle]) {
+        try {
+          await _secureCredenciales.delete(key: k);
+        } catch (_) {}
+      }
+      await limpiar();
+    }
+    await prefs.setBool(_flagReparado, true);
+    return afectado;
   }
 
   /// AUTH-02 (Auditoría Día 35): punto ÚNICO de cierre de sesión.
@@ -400,9 +486,27 @@ class ApiClient {
         res = await me();
         if (res.statusCode == 401) return EstadoSesion.cerrada;
       }
+      // Día 76 — la sesión tiene que ser de la MISMA persona que la app
+      // tiene guardada (su nombre es el que se muestra arriba). Si no
+      // coincide, algo mezcló dos cuentas en este teléfono: no se entra.
+      if (res.statusCode == 200 && !await _esLaMismaPersona(res)) {
+        return EstadoSesion.cerrada;
+      }
       return EstadoSesion.valida;
     } catch (_) {
       return EstadoSesion.sinConexion;
+    }
+  }
+
+  static Future<bool> _esLaMismaPersona(http.Response res) async {
+    try {
+      final data = (jsonDecode(utf8.decode(res.bodyBytes)) as Map)['data'] as Map;
+      final delServidor = (data['usuario'] as Map?)?['id']?.toString();
+      final guardado = (await AuthStorage.getUser())?['id']?.toString();
+      if (delServidor == null || guardado == null) return true; // no hay con qué comparar
+      return delServidor == guardado;
+    } catch (_) {
+      return true;
     }
   }
 
